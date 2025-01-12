@@ -1,0 +1,47 @@
+{
+    "name": "root",
+    "metadata": {
+        "timer_format_version": "0.1.0",
+        "start_time_seconds": "1729286942",
+        "python_version": "3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]",
+        "command_line_arguments": "C:\\Users\\fireb\\Documents\\Unity Workspace\\FactionsTool\\venv\\Scripts\\mlagents-learn",
+        "mlagents_version": "1.1.0",
+        "mlagents_envs_version": "1.1.0",
+        "communication_protocol_version": "1.5.0",
+        "pytorch_version": "2.2.2+cu121",
+        "numpy_version": "1.23.5",
+        "end_time_seconds": "1729286978"
+    },
+    "total": 36.271054900003946,
+    "count": 1,
+    "self": 0.012996400022529997,
+    "children": {
+        "run_training.setup": {
+            "total": 0.22297219999018125,
+            "count": 1,
+            "self": 0.22297219999018125
+        },
+        "TrainerController.start_learning": {
+            "total": 36.035086299991235,
+            "count": 1,
+            "self": 0.0008538999827578664,
+            "children": {
+                "TrainerController._reset_env": {
+                    "total": 36.03421930001059,
+                    "count": 1,
+                    "self": 36.03421930001059
+                },
+                "trainer_threads": {
+                    "total": 1.4999968698248267e-06,
+                    "count": 1,
+                    "self": 1.4999968698248267e-06
+                },
+                "TrainerController._save_models": {
+                    "total": 1.1600001016631722e-05,
+                    "count": 1,
+                    "self": 1.1600001016631722e-05
+                }
+            }
+        }
+    }
+}

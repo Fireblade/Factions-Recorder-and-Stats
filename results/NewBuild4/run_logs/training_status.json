@@ -1,0 +1,29 @@
+{
+    "FastHQ": {
+        "checkpoints": [
+            {
+                "steps": 217400,
+                "file_path": "results\\NewBuild4\\FastHQ\\FastHQ-217400.onnx",
+                "reward": null,
+                "creation_time": 1729461954.5694177,
+                "auxillary_file_paths": [
+                    "results\\NewBuild4\\FastHQ\\FastHQ-217400.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 217400,
+            "file_path": "results\\NewBuild4\\FastHQ.onnx",
+            "reward": null,
+            "creation_time": 1729461954.5694177,
+            "auxillary_file_paths": [
+                "results\\NewBuild4\\FastHQ\\FastHQ-217400.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.2.2+cu121"
+    }
+}

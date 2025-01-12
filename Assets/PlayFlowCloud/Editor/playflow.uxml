@@ -1,0 +1,154 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/PlayFlowCloud/Editor/Styles.uss?fileID=7433441132597879392&amp;guid=d68bd011df794c9f9e93e1ac429f1d53&amp;type=3#Styles" />
+    <ui:ScrollView view-data-key="mainscroll" style="height: 100%; width: 100%; justify-content: flex-end;">
+        <ui:VisualElement style="align-items: center; justify-content: space-around; background-color: rgb(17, 17, 17); -unity-text-outline-color: rgb(0, 0, 0); width: 100%;">
+            <ui:VisualElement tooltip="Start Server will launch a new server. If you already have a server running and want to test a new uploaded server quickly, you can use the update server button" style="background-image: resource(&apos;playflow&apos;); width: 256px; height: 256px; justify-content: space-around; align-items: stretch; position: relative; top: auto; left: auto; visibility: visible; overflow: visible; display: flex; -unity-background-scale-mode: scale-to-fit; scale: 1 1; margin-bottom: -25px; margin-top: -50px; background-color: rgba(255, 255, 255, 0);" />
+            <ui:VisualElement name="VisualElement" style="flex-grow: 1; height: auto; width: 100%; overflow: visible; visibility: visible; padding-bottom: 5px; margin-top: -30px;">
+                <ui:GroupBox style="flex-direction: row; justify-content: space-between; align-items: center; padding: 0; margin: 0; width: 100%; flex-shrink: 0;">
+                    <ui:Button tabindex="-1" name="QuickStart" class="button-with-icon" style="width: 24%; margin: 0 0.5%; padding: 0; flex-direction: row-reverse;">
+                        <ui:Label text="Quick Start" class="button-label" />
+                        <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/lightning-icon&apos;);" />
+                    </ui:Button>
+                    <ui:Button tabindex="-1" name="ButtonDocumentation" class="button-with-icon" style="width: 24%; margin: 0 0.5%; padding: 0; flex-direction: row-reverse;">
+                        <ui:Label text="Documentation" class="button-label" />
+                        <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/documentation-icon&apos;);" />
+                    </ui:Button>
+                    <ui:Button tabindex="-1" name="ButtonDiscord" class="button-with-icon" style="width: 24%; margin: 0 0.5%; padding: 0; flex-direction: row-reverse;">
+                        <ui:Label text="Discord" class="button-label" />
+                        <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/icon-social&apos;);" />
+                    </ui:Button>
+                    <ui:Button tabindex="-1" name="ButtonPricing" class="button-with-icon" style="width: 24%; margin: 0 0.5%; padding: 0; flex-direction: row-reverse;">
+                        <ui:Label text="Pricing" class="button-label" />
+                        <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/price-tag&apos;);" />
+                    </ui:Button>
+                </ui:GroupBox>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:ProgressBar title="progress" name="progress" style="display: none;" />
+        <ui:VisualElement style="flex-grow: 1; width: 100%; height: 100%; padding-right: 11px;">
+            <ui:Foldout text="PlayFlow Config" value="false" view-data-key="ConfigFoldout" usage-hints="None" name="ConfigFoldout">
+                <ui:Button tabindex="-1" name="ButtonGetToken" class="button-with-icon" style="width: 100%; flex-direction: row-reverse;">
+                    <ui:Label text="Get Token" class="button-label" />
+                    <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/key-icon&apos;); -unity-background-scale-mode: scale-to-fit;" />
+                </ui:Button>
+                <ui:TextField picking-mode="Ignore" label="Token" name="TextToken" view-data-key="token" password="true" />
+            </ui:Foldout>
+            <ui:Foldout text="Publish Build" value="false" name="UploadFoldout" view-data-key="UploadFoldout" tabindex="0">
+                <ui:Toggle label="Development Build" name="DevelopmentBuild" view-data-key="DevelopmentBuild" style="flex-direction: row; height: auto; align-items: auto; justify-content: space-around;" />
+                <ui:Toggle label="Use Build Settings Scene List" name="UseBuildSettings" view-data-key="UseBuildSettings" style="flex-direction: row; align-items: auto; justify-content: space-between;" />
+                <ui:DropdownField label="Server Scene" index="-1" choices="System.Collections.Generic.List`1[System.String]" name="sceneDropDown" view-data-key="sceneDropDown" />
+                <ui:TextField picking-mode="Ignore" label="Build Version" name="servertag" view-data-key="servertag" password="false" value="default" />
+                <ui:GroupBox style="align-items: center; justify-content: space-around; flex-direction: row; width: auto; margin-left: 0;">
+                    <ui:Button name="ButtonUpload" class="button-with-icon" style="width: 49%; flex-direction: row-reverse;">
+                        <ui:Label text="Upload Server" class="button-label" />
+                        <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/cloud-upload-icon&apos;);" />
+                    </ui:Button>
+                    <ui:Button name="ButtonUploadStatus" class="button-with-icon" style="width: 49%; flex-direction: row-reverse;">
+                        <ui:Label text="Get Upload Status" class="button-label" />
+                        <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/sync&apos;);" />
+                    </ui:Button>
+                </ui:GroupBox>
+                <ui:TextField picking-mode="Ignore" name="uploadedInfoValue" view-data-key="uploadedInfoValueKey" password="false" value="Last Uploaded:" readonly="true" style="display: flex; width: 100%;" />
+            </ui:Foldout>
+            <ui:Foldout text="Manage Build Versions" value="true" name="TagsFoldout" view-data-key="TagsFoldout" style="display: flex;">
+                <ui:DropdownField label="Build Tags" name="BuildTagsDropdown" view-data-key="BuildTagsDropdown" index="0" />
+                <ui:GroupBox style="align-items: center; justify-content: space-around; flex-direction: row; width: auto; margin-left: 0;">
+                    <ui:Button name="ButtonGetTags" class="button-with-icon" style="width: 49%; flex-direction: row-reverse;">
+                        <ui:Label text="Refresh" class="button-label" />
+                        <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/sync&apos;);" />
+                    </ui:Button>
+                    <ui:Button name="ButtonDeleteTag" class="button-with-icon" style="width: 49%; flex-direction: row-reverse;">
+                        <ui:Label text="Delete Build" class="button-label" />
+                        <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/warning&apos;);" />
+                    </ui:Button>
+                </ui:GroupBox>
+            </ui:Foldout>
+            <ui:Foldout text="Launch Servers" value="false" view-data-key="LaunchServersFoldout" name="LaunchServersFoldout">
+                <ui:TextField picking-mode="Ignore" label="Arguments (optional)" view-data-key="arguments" name="TextArgs" style="display: flex;" />
+                <ui:Toggle label="Enable SSL" view-data-key="enableSSL" name="enableSSL" style="overflow: hidden; position: relative; top: auto; left: auto; height: auto; width: auto; align-items: auto; justify-content: flex-end; flex-direction: row; margin-left: 3px;" />
+                <ui:TextField picking-mode="Ignore" label="Server Port for SSL" value="0" text="0" name="sslValue" view-data-key="sslValue" style="display: flex;" />
+                <ui:DropdownField label="Location" index="-1" choices="System.Collections.Generic.List`1[System.String]" name="locationDropdown" view-data-key="locationDropdown" />
+                <ui:DropdownField label="Instance Type" index="-1" choices="System.Collections.Generic.List`1[System.String]" name="instanceTypeDropdown" view-data-key="instanceTypeDropdown" style="display: flex;" />
+                <ui:DropdownField label="Build Version" name="LaunchTagDropdown" index="0" tooltip="Use this dropdown to choose a specific build version of your game. If no version is selected, then the default server build is used." view-data-key="LaunchTagDropdown" style="margin-right: 4px;" />
+                <ui:GroupBox name="GroupBox" style="flex-direction: row; flex-wrap: nowrap; align-items: center;">
+                    <ui:Button name="ButtonStart" class="button-with-icon" style="width: 100%; background-image: none; flex-direction: row-reverse;">
+                        <ui:Label text="Start Server" class="button-label" />
+                        <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/rocket&apos;);" />
+                    </ui:Button>
+                </ui:GroupBox>
+            </ui:Foldout>
+            <ui:Foldout text="Manage Servers" value="true" view-data-key="ManageFoldout" name="ManageFoldout">
+                <ui:GroupBox style="flex-direction: row; align-items: center; justify-content: space-around; align-self: flex-start;">
+                    <ui:Label tabindex="-1" text="Current Server Status:" parse-escape-sequences="true" display-tooltip-when-elided="true" name="ServerStatusLabel" />
+                    <ui:VisualElement name="LaunchingIcon" style="flex-grow: 1; background-image: resource(&apos;PlayFlowIcons/yellow-circle&apos;); width: 24px; height: 24px; -unity-background-scale-mode: scale-to-fit; align-items: center; flex-direction: column; justify-content: center; display: none; visibility: visible;" />
+                    <ui:VisualElement name="OnlineIcon" style="flex-grow: 1; background-image: resource(&apos;PlayFlowIcons/green-circle&apos;); width: 24px; height: 24px; -unity-background-scale-mode: scale-to-fit; align-items: center; flex-direction: column; justify-content: center; display: none; visibility: visible;" />
+                </ui:GroupBox>
+                <ui:VisualElement style="flex-grow: 1;">
+                    <ui:TextField picking-mode="Ignore" name="lastRefreshedKey" view-data-key="lastRefreshedKey" password="false" value="Last Refreshed: " readonly="true" style="display: flex; width: 100%; font-size: 10px; height: auto;" />
+                    <ui:Button name="ButtonRefresh" class="button-with-icon" style="width: 100%; flex-direction: row-reverse;">
+                        <ui:Label text="Refresh Server List" class="button-label" />
+                        <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/sync&apos;);" />
+                    </ui:Button>
+                    <ui:DropdownField label="Active Servers" index="-1" choices="System.Collections.Generic.List`1[System.String]" name="ActiveServersDropdown" view-data-key="ActiveServersDropdown" style="align-items: center; justify-content: flex-start;" />
+                    <ui:GroupBox style="flex-direction: row; justify-content: space-around; margin-left: 0;">
+                        <ui:Button name="ButtonCopyIP" class="button-with-icon" style="width: 32%; flex-direction: row-reverse;">
+                            <ui:Label text="Copy IP Address" class="button-label" />
+                            <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/copy&apos;);" />
+                        </ui:Button>
+                        <ui:Button name="ButtonCopyServerUrl" class="button-with-icon" style="width: 32%; flex-direction: row-reverse;">
+                            <ui:Label text="Copy Server URL" class="button-label" />
+                            <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/copy&apos;);" />
+                        </ui:Button>
+                        <ui:Button name="ButtonCopyMatchId" class="button-with-icon" style="width: 32%; flex-direction: row-reverse;">
+                            <ui:Label text="Copy Match ID" class="button-label" />
+                            <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/copy&apos;);" />
+                        </ui:Button>
+                    </ui:GroupBox>
+                    <ui:GroupBox style="flex-direction: row; justify-content: space-around; margin-left: 0;">
+                        <ui:Button name="ButtonUpdateServer" class="button-with-icon" style="width: 32%; flex-direction: row-reverse;">
+                            <ui:Label text="Update Server" class="button-label" />
+                            <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/cloud-upload-icon&apos;);" />
+                        </ui:Button>
+                        <ui:Button name="ButtonRestartServer" class="button-with-icon" style="width: 32%; flex-direction: row-reverse;">
+                            <ui:Label text="Restart Server" class="button-label" />
+                            <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/restart&apos;);" />
+                        </ui:Button>
+                        <ui:Button name="ButtonStopServer" class="button-with-icon" style="width: 32%; flex-direction: row-reverse;">
+                            <ui:Label text="Stop Server" class="button-label" />
+                            <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/stop&apos;);" />
+                        </ui:Button>
+                    </ui:GroupBox>
+                    <ui:GroupBox style="flex-direction: row; justify-content: space-around; margin-left: 0;">
+                        <ui:Button name="ButtonViewDashboard" class="button-with-icon" style="width: 32%; flex-direction: row-reverse;">
+                            <ui:Label text="Monitor Server Performance" class="button-label" />
+                            <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/information-icon&apos;);" />
+                        </ui:Button>
+                        <ui:Button name="ButtonGetStatus" class="button-with-icon" style="width: 32%; flex-direction: row-reverse;">
+                            <ui:Label text="Get Status" class="button-label" />
+                            <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/information-icon&apos;);" />
+                        </ui:Button>
+                        <ui:Button name="ButtonGetLogs" class="button-with-icon" style="width: 32%; flex-direction: row-reverse;">
+                            <ui:Label text="Get Logs" class="button-label" />
+                            <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/information-icon&apos;);" />
+                        </ui:Button>
+                    </ui:GroupBox>
+                    <ui:Foldout text="Reset Instance" value="false" name="Reset" view-data-key="foldPublish" style="margin-left: 3px; padding-left: 0; margin-right: 0; display: none;">
+                        <ui:GroupBox style="align-items: auto; justify-content: space-around; flex-direction: row; width: auto; margin-left: 0;">
+                            <ui:Button name="ResetInstance" class="button-with-icon" style="width: 50%;">
+                                <ui:Label text="Reset Instance" class="button-label" />
+                                <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/information-icon&apos;);" />
+                            </ui:Button>
+                            <ui:Button name="InstanceStatus" class="button-with-icon" style="width: 50%;">
+                                <ui:Label text="Get Instance Status" class="button-label" />
+                                <ui:VisualElement class="button-icon" style="background-image: resource(&apos;PlayFlowIcons/information-icon&apos;);" />
+                            </ui:Button>
+                        </ui:GroupBox>
+                    </ui:Foldout>
+                </ui:VisualElement>
+            </ui:Foldout>
+            <ui:Foldout text="PlayFlow Logs" name="LogsFoldout" view-data-key="LogsFoldout">
+                <ui:TextField picking-mode="Ignore" multiline="true" value=" " readonly="true" name="logs" style="height: auto; flex-wrap: wrap; white-space: normal;" />
+            </ui:Foldout>
+        </ui:VisualElement>
+    </ui:ScrollView>
+</ui:UXML>

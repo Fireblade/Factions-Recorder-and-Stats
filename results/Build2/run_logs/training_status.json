@@ -1,0 +1,47 @@
+{
+    "FastHQ": {
+        "checkpoints": [
+            {
+                "steps": 499936,
+                "file_path": "results\\Build2\\FastHQ\\FastHQ-499936.onnx",
+                "reward": null,
+                "creation_time": 1729382419.7796118,
+                "auxillary_file_paths": [
+                    "results\\Build2\\FastHQ\\FastHQ-499936.pt"
+                ]
+            },
+            {
+                "steps": 999968,
+                "file_path": "results\\Build2\\FastHQ\\FastHQ-999968.onnx",
+                "reward": null,
+                "creation_time": 1729386242.046946,
+                "auxillary_file_paths": [
+                    "results\\Build2\\FastHQ\\FastHQ-999968.pt"
+                ]
+            },
+            {
+                "steps": 1078240,
+                "file_path": "results\\Build2\\FastHQ\\FastHQ-1078240.onnx",
+                "reward": null,
+                "creation_time": 1729386902.212506,
+                "auxillary_file_paths": [
+                    "results\\Build2\\FastHQ\\FastHQ-1078240.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 1078240,
+            "file_path": "results\\Build2\\FastHQ.onnx",
+            "reward": null,
+            "creation_time": 1729386902.212506,
+            "auxillary_file_paths": [
+                "results\\Build2\\FastHQ\\FastHQ-1078240.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.2.2+cu121"
+    }
+}
