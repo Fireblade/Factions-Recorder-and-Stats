@@ -125,3 +125,30 @@ public class CityData
         return true;
     }
 }
+
+public enum Stat
+{
+    Ticks,
+    WoodStorage,
+    WoodStorageMulti,
+    WoodProduction,
+    WoodMulti,
+    WoodCount,
+    IronStorage,
+    IronStorageMulti,
+    IronProduction,
+    IronMulti,
+    IronCount,
+    SoldierStorage,
+    SoldierStorageMulti,
+    SoldierProduction,
+    SoldierMulti,
+    SoldierCount,
+    WorkerStorage,
+    WorkerStorageMulti,
+    WorkerProduction,
+    WorkerMulti,
+    WorkerCount,
+    MaxBuildings,
+    BuildingCount,
+}

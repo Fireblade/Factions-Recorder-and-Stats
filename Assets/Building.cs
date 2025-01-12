@@ -12,7 +12,6 @@ public class Building
     public static bool dataInitalized = false;
     public static Dictionary<BuildingType, BuildingData> buildingData = new Dictionary<BuildingType, BuildingData>();
 
-    public CityManager manager;
     public CityPlannerManager cityManager;
     public string Name { get; set; }
     public BuildingType myBuilding { get; set; } = BuildingType.None;
@@ -23,86 +22,11 @@ public class Building
 
     }
 
-    public Building(CityManager manager, string name, BuildingType buildingType, int lvl)
-    {
-        this.manager = manager;
-        Name = name;
-        this.myBuilding = buildingType;
-        Level = lvl;
-    }
-
-    // Check if the building can be constructed or upgraded
-    public bool CanUpgrade(ResourceManager resourceManager)
-    {
-        foreach (var cost in CostsForLevel(Level+1).ToList())
-        {
-            if (!resourceManager.CanAfford(cost.Key, cost.Value))
-                return false;
-        }
-        return true;
-    }
-
-    public bool CanBuild(ResourceManager resourceManager)
-    {
-        foreach (var cost in CostsForLevel(1).ToList())
-        {
-            if (!resourceManager.CanAfford(cost.Key, cost.Value))
-                return false;
-        }
-        return true;
-    }
-
-    // Upgrade the building (costs scale with level)
-    public bool Upgrade(ResourceManager resourceManager)
-    {
-        if (myBuilding == BuildingType.None)
-        {
-            return false;
-        }
-        if (manager.HQ.Level >= buildingData[myBuilding].requiredHQLevel)
-        {
-            if (CanUpgrade(resourceManager))
-            {
-
-                Dictionary<ResourceType, double> ResourceCosts = CostsForLevel(Level + 1);
-                resourceManager.SpendResources(ResourceCosts);
-                Level++;
-                manager.needUpdateStats = true;
-                return true;
-            }
-        }
-        return false;
-    }
-
     public Dictionary<ResourceType,double> CostsForLevel(int level)
     {
         return buildingData[myBuilding].costs[level - 1];
     }
 
-    // Produce resources per tick
-    public void ProduceResources(ResourceManager resourceManager)
-    {
-        if (myBuilding == BuildingType.None)
-        {
-            return;
-        }
-        //foreach (var output in buildingData[myBuilding].outputs.ToList())
-        //{
-        //    resourceManager.IncrementResource(output.Key, output.Value * Level);
-        //}
-    }
-
-    public void UpdateStats()
-    {
-        if(myBuilding == BuildingType.None)
-        {
-            return;
-        }
-        foreach (var effect in buildingData[myBuilding].effects)
-        {
-            manager.stats[effect.Key] += (effect.Value * (double) Level);
-        }
-    }
 
     public static void InitializeBuildingData(CityPlannerManager cityManager)
     {
