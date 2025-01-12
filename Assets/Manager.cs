@@ -1,22 +1,15 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-<<<<<<< HEAD
-=======
-//using MySql.Data.MySqlClient;
-//using MySqlConnector;
->>>>>>> e68c02c (Add project files.)
 using System;
-using System.Threading;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
 using UnityEngine.Networking;
-using Newtonsoft.Json;
 using System.Text;
 using static PlayFlow.PlayFlowManager;
 using System.Linq;
 using System.IO;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 public class Manager : MonoBehaviour
 {
@@ -60,6 +53,7 @@ public class Manager : MonoBehaviour
             Building.InitializeBuildingData(null);
         }
 
+        //Open source description - Uncomment line to pull leaderboard data from a game
         //PullLeaderboardFromGame(20);
 
         // Other initialization code...
@@ -77,21 +71,40 @@ public class Manager : MonoBehaviour
 
     private void LoadApiTokens()
     {
-        string configPath = Path.Combine(Application.dataPath, "config.json");
-        if (File.Exists(configPath))
+        TextAsset configTextAsset = Resources.Load<TextAsset>("config");
+        if (configTextAsset != null)
         {
-            string json = File.ReadAllText(configPath);
-            var config = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-            if (config != null)
+            Debug.Log("Config file found."); // Log if the file is found
+            string[] lines = configTextAsset.text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            Debug.Log("Config content: " + configTextAsset.text); // Log the config content
+
+            foreach (string line in lines)
             {
-                if (config.ContainsKey("factionsApiToken"))
-                    factionsApiToken = config["factionsApiToken"];
-                if (config.ContainsKey("apiToken"))
-                    apiToken = config["apiToken"];
-            }
-            else
-            {
-                Debug.LogError("API token not found in config file.");
+                string[] keyValue = line.Split('=');
+                if (keyValue.Length == 2)
+                {
+                    string key = keyValue[0].Trim();
+                    string value = keyValue[1].Trim();
+
+                    if (key == "factionsApiToken")
+                    {
+                        factionsApiToken = value;
+                        Debug.Log("factionsApiToken: " + factionsApiToken);
+                    }
+                    else if (key == "apiToken")
+                    {
+                        apiToken = value;
+                        Debug.Log("apiToken: " + apiToken);
+                    }
+                    else
+                    {
+                        Debug.LogError("Unknown key in config: " + key);
+                    }
+                }
+                else
+                {
+                    Debug.LogError("Invalid line in config: " + line);
+                }
             }
         }
         else
