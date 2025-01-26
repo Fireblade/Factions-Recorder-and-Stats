@@ -285,27 +285,6 @@ public class GameHandler
                     mapPrint += factionConnectedPlayers[i] + "=";
                 }
 
-
-#if UNITY_EDITOR
-                Debug.Log($"[Debug-Map capture line] {mapPrint}");
-
-
-                //we need to append mapPrint to the end of a file in the working directory of the program called "Game_19_Map_History.txt"
-                //we need to make sure the file exists before we try to write to it
-                //we need to make sure the file is closed after we write to it
-                //we need to make sure the file is opened in append mode so we don't overwrite the existing data
-                //we need to make sure the file is opened in write mode so we can overwrite the existing data
-
-                if (Manager.instance.appendLocalFiles)
-                {
-                    if (File.Exists("Game_19_MapHistory.txt") == false)
-                    {
-                        File.Create("Game_19_MapHistory.txt").Close();
-                    }
-
-                    File.AppendAllText("Game_19_MapHistory.txt", "\n" + mapPrint);
-                }
-#endif
                 using (HttpClient client = new HttpClient())
                 {
                     string requestBody = $"mapData={Uri.EscapeDataString(mapPrint)}&gameID={gameID}&isTestGame={isTestGame.ToString()}";
@@ -336,6 +315,7 @@ public class GameHandler
                     {
                         contentData.Add(new
                         {
+                            PlayerID = player.id,
                             PlayerName = playerEntry.Key,
                             HQLevel = player.hqLevel,
                             Soldiers = player.sentSoldiers,

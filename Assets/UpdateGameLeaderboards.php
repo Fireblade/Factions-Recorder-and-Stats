@@ -64,6 +64,7 @@ $tableName = "Game" . $gameID . "Leaderboards";
 
 // Iterate through each player data
 foreach ($data as $player) {
+    $playerID = $player['PlayerID'];
     $playerName = $player['PlayerName'];
     $hqLevel = $player['HQLevel'];
     $soldiers = $player['Soldiers'];
@@ -72,10 +73,9 @@ foreach ($data as $player) {
     $team = $player['Team'];
     $lastActive = $player['LastActive'];
 
-
     // Insert or update player data
-    $query = "INSERT INTO $tableName (PlayerName, HQLevel, Soldiers, Workers, TilesCaptured, Team, LastActive)
-              VALUES (?, ?, ?, ?, ?, ?, ?)
+    $query = "INSERT INTO $tableName (PlayerID, PlayerName, HQLevel, Soldiers, Workers, TilesCaptured, Team, LastActive)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
               ON DUPLICATE KEY UPDATE
               HQLevel = GREATEST(HQLevel, VALUES(HQLevel)),
               Soldiers = GREATEST(Soldiers, VALUES(Soldiers)),
@@ -88,12 +88,10 @@ foreach ($data as $player) {
         logDebug("Prepare failed: " . $conn->error);
         die("Prepare failed: " . $conn->error);
     }
-    $stmt->bind_param("siiisis", $playerName, $hqLevel, $soldiers, $workers, $tilesCaptured, $team, $lastActive);
+    $stmt->bind_param("isiiisis", $playerID, $playerName, $hqLevel, $soldiers, $workers, $tilesCaptured, $team, $lastActive);
     if ($stmt->execute() === false) {
         die("Execute failed: " . $stmt->error);
     }
-
-
 }
 
 // Close connection
