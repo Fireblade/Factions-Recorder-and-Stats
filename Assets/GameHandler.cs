@@ -27,8 +27,8 @@ public class GameHandler
     public int height = 50;
     public bool waitingToStart = false;
     public int gameMinute = 0;
-    public int nextEloBlock = 960;
-    public int eloBlockInterval = 960;
+    public int nextEloBlock = 480;
+    public int eloBlockInterval = 480;
     public int totalBlocksChecked = 0;
 
     public DateTime gameStart;
@@ -47,6 +47,10 @@ public class GameHandler
     public int[,] factionSentSoldiers = new int[60, 5]; //Records up to the last 60 minutes of soldier sent data
     public int[,] factionSentWorkers = new int[60, 5]; //records up to the last 60 minutes of worker sent data
     public int[] factionConnectedPlayers = new int[] { 0, 0, 0, 0, 0 };
+
+
+    public List<int> gameSoldierBlocks = new List<int>();
+    public List<int> gameWorkerBlocks = new List<int>();
 
     public GameHandler(int gameID)
     {
@@ -150,7 +154,8 @@ public class GameHandler
         int avgBlockSoldiers = eligibleCount > 0 ? totalBlockSoldiers / eligibleCount : 0;
         int avgBlockWorkers = eligibleCount > 0 ? totalBlockWorkers / eligibleCount : 0;
 
-
+        gameSoldierBlocks.Add(avgBlockSoldiers);
+        gameWorkerBlocks.Add(avgBlockWorkers);
 
         var contentData = new List<object>();
 
@@ -165,15 +170,27 @@ public class GameHandler
             float workerScore = Mathf.Sqrt(blockWorkers - avgBlockWorkers);
 
             float totalScore = (float)Math.Round(soldierScore + workerScore, 5);
-            player.eloBlockScore.Add(totalScore);
+            while (player.scoreBlocks.Count < (totalBlocksChecked-1))
+            {
+                player.scoreBlocks.Add(0);
+                player.soldierBlocks.Add(0);
+                player.workerBlocks.Add(0);
+            }
+            player.scoreBlocks.Add(totalScore);
+            player.soldierBlocks.Add(blockSoldiers);
+            player.workerBlocks.Add(blockWorkers);
 
-            string scoreString = string.Join(",", player.eloBlockScore);
+            string scoreString = string.Join(",", player.scoreBlocks);
+            string soldierString = string.Join(",", player.soldierBlocks);
+            string workerString = string.Join(",", player.workerBlocks);
 
 
             contentData.Add(new
             {
                 PlayerID = player.id,
-                ScoreBlocks = scoreString
+                ScoreBlocks = scoreString,
+                SoldierBlocks = soldierString,
+                WorkerBlocks = workerString,
             });
 
             //Save state of their sent soldiers/workers so we can tell the difference between blocks.
@@ -182,12 +199,15 @@ public class GameHandler
 
         }
 
+        string gameSoldierString = string.Join(",", gameSoldierBlocks);
+        string gameWorkerString = string.Join(",", gameWorkerBlocks);
+
         var contentJson = JsonConvert.SerializeObject(contentData);
 
         using (HttpClient client = new HttpClient())
         {
             client.DefaultRequestHeaders.Add("API_KEY", Manager.apiToken);
-            string requestBody = $"playerData={Uri.EscapeDataString(contentJson)}&gameID={gameID}";
+            string requestBody = $"playerData={Uri.EscapeDataString(contentJson)}&gameID={gameID}&averageSoldierBlocks={Uri.EscapeDataString(gameSoldierString)}&averageWorkerBlocks={Uri.EscapeDataString(gameWorkerString)}";
 
             StringContent content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");
 
@@ -578,6 +598,53 @@ public class GameHandler
             {
                 Debug.LogError("Error: " + request.error + "\n" + fullUrl);
             }
+        }
+    }
+
+    public async void GrabGameData()
+    {
+        if (gameMinute > 2) return;
+        try
+        {
+            using (HttpClient client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add("API_KEY", Manager.apiToken);
+                string url = "https://mclama.com/Factions/GetGameData.php";
+                HttpResponseMessage response = await client.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+                string data = await response.Content.ReadAsStringAsync();
+
+                if (data == "0 results")
+                {
+                    Debug.Log("0 results. No game data");
+                }
+                else
+                {
+                    // Parse the JSON data
+                    JObject jsonData = JObject.Parse(data);
+
+                    // Extract the gameMinute
+                    gameMinute = jsonData["GameMinute"].Value<int>();
+
+                    // Extract the AverageSoldierBlocks and AverageWorkerBlocks
+                    string averageSoldierBlocks = jsonData["AverageSoldierBlocks"].Value<string>();
+                    string averageWorkerBlocks = jsonData["AverageWorkerBlocks"].Value<string>();
+
+                    // Convert averageSoldierBlocks to a list of integers
+                    gameSoldierBlocks = averageSoldierBlocks.Split(',')
+                        .Select(int.Parse)
+                        .ToList();
+
+                    // Convert averageWorkerBlocks to a list of integers
+                    gameWorkerBlocks = averageWorkerBlocks.Split(',')
+                        .Select(int.Parse)
+                        .ToList();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("An error occurred: " + ex.Message);
         }
     }
 

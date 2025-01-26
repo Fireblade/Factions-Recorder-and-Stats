@@ -21,7 +21,9 @@ public class Player
 
     public int recordedEloSoldiers = 0;
     public int recordedEloWorkers = 0;
-    public List<float> eloBlockScore = new List<float>();
+    public List<float> scoreBlocks = new List<float>();
+    public List<int> soldierBlocks = new List<int>();
+    public List<int> workerBlocks = new List<int>();
 
     public Player(int id, string playerName)
     {

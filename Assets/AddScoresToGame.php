@@ -19,9 +19,11 @@ if (!isset($_SERVER['HTTP_API_KEY']) || $_SERVER['HTTP_API_KEY'] !== $storedApiK
     exit;
 }
 
-if (isset($_POST['gameID']) && isset($_POST['playerData'])) {
+if (isset($_POST['gameID']) && isset($_POST['playerData']) && isset($_POST['averageSoldierBlocks']) && isset($_POST['averageWorkerBlocks'])) {
     $gameID = intval($_POST['gameID']);
     $playerData = $_POST['playerData'];
+    $averageSoldierBlocks = floatval($_POST['averageSoldierBlocks']);
+    $averageWorkerBlocks = floatval($_POST['averageWorkerBlocks']);
     echo "Parameters found";
 } else {
     echo "Missing parameters";
@@ -66,6 +68,8 @@ $tableName = "Game" . $gameID . "Leaderboards";
 foreach ($data as $player) {
     $playerID = $player['PlayerID'];
     $scoreBlocks = $player['ScoreBlocks'];
+    $soldierBlocks = $player['SoldierBlocks'];
+    $workerBlocks = $player['WorkerBlocks'];
 
     // Check if playerID exists in the database
     $checkQuery = "SELECT COUNT(*) FROM $tableName WHERE PlayerID = ?";
@@ -87,21 +91,36 @@ foreach ($data as $player) {
     }
 
     // Insert or update player data
-    $query = "INSERT INTO $tableName (PlayerID, ScoreBlocks)
-              VALUES (?, ?)
+    $query = "INSERT INTO $tableName (PlayerID, ScoreBlocks, SoldierBlocks, WorkerBlocks)
+              VALUES (?, ?, ?, ?)
               ON DUPLICATE KEY UPDATE
-              ScoreBlocks = VALUES(ScoreBlocks)";
+              ScoreBlocks = VALUES(ScoreBlocks),
+              SoldierBlocks = VALUES(SoldierBlocks),
+              WorkerBlocks = VALUES(WorkerBlocks)";
     $stmt = $conn->prepare($query);
     if ($stmt === false) {
         logDebug("Prepare failed: " . $conn->error);
         die("Prepare failed: " . $conn->error);
     }
-    $stmt->bind_param("is", $playerID, $scoreBlocks);
+    $stmt->bind_param("isss", $playerID, $scoreBlocks, $soldierBlocks, $workerBlocks);
     if ($stmt->execute() === false) {
         die("Execute failed: " . $stmt->error);
     }
 }
+
+// Update the average blocks for soldiers and workers
+$updateQuery = "UPDATE ActiveGames SET AverageSoldierBlocks = ?, AverageWorkerBlocks = ? WHERE GameID = ?";
+$updateStmt = $conn->prepare($updateQuery);
+if ($updateStmt === false) {
+    logDebug("Prepare failed: " . $conn->error);
+    die("Prepare failed: " . $conn->error);
 }
+$updateStmt->bind_param("ssi", $averageSoldierBlocks, $averageWorkerBlocks, $gameID);
+if ($updateStmt->execute() === false) {
+    die("Execute failed: " . $updateStmt->error);
+}
+$updateStmt->close();
+
 
 // Close connection
 $conn->close();
