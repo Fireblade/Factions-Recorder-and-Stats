@@ -19,6 +19,10 @@ public class Player
     public int rankBySentWorkers;
     public int rankByHQLevel;
 
+    public int recordedEloSoldiers = 0;
+    public int recordedEloWorkers = 0;
+    public List<float> eloBlockScore = new List<float>();
+
     public Player(int id, string playerName)
     {
         this.id = id;

@@ -2,6 +2,10 @@
 // Load configuration
 $config = require 'config.php';
 $storedApiKey = $config['api_key'];
+$servername = $config['servername'];
+$username = $config['username'];
+$password = $config['password'];
+$dbname = $config['dbname'];
 
 // Check if the API key is provided and valid
 if (!isset($_SERVER['HTTP_API_KEY']) || $_SERVER['HTTP_API_KEY'] !== $storedApiKey) {
@@ -63,6 +67,28 @@ if (isset($_POST['mapData']) && isset($_POST['gameID']) && isset($_POST['isTestG
             fclose($latestFile);
 
             echo "Data successfully written to the files.";
+
+            //Now increment the column GameMinute by 1 in table ActiveGames for the game.
+            // Create connection
+            $conn = new mysqli($servername, $username, $password, $dbname);
+
+            // Check connection
+            if ($conn->connect_error) {
+				echo "Connection failed: " . $conn->connect_error;
+				exit;
+			}
+            // Increment the GameMinute column by 1 for the specified game
+			$sql = "UPDATE ActiveGames SET GameMinute = GameMinute + 1 WHERE GameID = $gameID";
+
+			if ($conn->query($sql) === TRUE) {
+				echo "Game minute incremented successfully.";
+			} else {
+				echo "Error updating game minute: " . $conn->error;
+			}
+
+			// Close the database connection
+			$conn->close();
+
         } else {
             echo "Failed to open the latest file.";
         }

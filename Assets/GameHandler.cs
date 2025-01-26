@@ -26,6 +26,10 @@ public class GameHandler
     public int width = 50;
     public int height = 50;
     public bool waitingToStart = false;
+    public int gameMinute = 0;
+    public int nextEloBlock = 960;
+    public int eloBlockInterval = 960;
+    public int totalBlocksChecked = 0;
 
     public DateTime gameStart;
 
@@ -109,11 +113,94 @@ public class GameHandler
                 requestMapData = false;
                 CaptureMap();
                 mapDataDelayTick = 5;
+                if(gameMinute == nextEloBlock)
+                {
+                    CalculateEloBlock();
+                }
             }
         }
         if (!capturingMap && !capturingLeaderboard)
         {
             CheckPlayerDataToAdd();
+        }
+    }
+
+    private async void CalculateEloBlock()
+    {
+        nextEloBlock += eloBlockInterval;
+        totalBlocksChecked++;
+
+        //initialize fields
+        int eligibleCount = 0;
+        int totalBlockSoldiers = 0;
+        int totalBlockWorkers = 0;
+
+        //Sort through every player and get the data we need.
+        foreach (KeyValuePair<string, Player> player in playerData)
+        {
+            if (player.Value.hqLevel > 5)
+            {
+                eligibleCount++;
+                totalBlockSoldiers += player.Value.sentSoldiers - player.Value.recordedEloSoldiers;
+                totalBlockWorkers += player.Value.sentWorkers - player.Value.recordedEloWorkers;
+            }
+        }
+
+        //Specify our averages.
+        int avgBlockSoldiers = eligibleCount > 0 ? totalBlockSoldiers / eligibleCount : 0;
+        int avgBlockWorkers = eligibleCount > 0 ? totalBlockWorkers / eligibleCount : 0;
+
+
+
+        var contentData = new List<object>();
+
+        foreach (var playerEntry in playerData)
+        {
+            var player = playerEntry.Value;
+
+            int blockSoldiers = player.sentSoldiers - player.recordedEloSoldiers;
+            float soldierScore = Mathf.Sqrt(blockSoldiers - avgBlockSoldiers);
+
+            int blockWorkers = player.sentWorkers - player.recordedEloWorkers;
+            float workerScore = Mathf.Sqrt(blockWorkers - avgBlockWorkers);
+
+            float totalScore = (float)Math.Round(soldierScore + workerScore, 5);
+            player.eloBlockScore.Add(totalScore);
+
+            string scoreString = string.Join(",", player.eloBlockScore);
+
+
+            contentData.Add(new
+            {
+                PlayerID = player.id,
+                ScoreBlocks = scoreString
+            });
+
+            //Save state of their sent soldiers/workers so we can tell the difference between blocks.
+            player.recordedEloSoldiers = player.sentSoldiers;
+            player.recordedEloWorkers = player.sentWorkers;
+
+        }
+
+        var contentJson = JsonConvert.SerializeObject(contentData);
+
+        using (HttpClient client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Add("API_KEY", Manager.apiToken);
+            string requestBody = $"playerData={Uri.EscapeDataString(contentJson)}&gameID={gameID}";
+
+            StringContent content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");
+
+            HttpResponseMessage response = await client.PostAsync("https://mclama.com/Factions/AddScoresToGame.php", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                //Debug.Log("leaderboard data sent successfully");
+            }
+            else
+            {
+                // Debug.LogError("Error sending leaderboard data: " + response.StatusCode);
+            }
         }
     }
 
@@ -331,6 +418,7 @@ public class GameHandler
 
                 using (HttpClient client = new HttpClient())
                 {
+                    client.DefaultRequestHeaders.Add("API_KEY", Manager.apiToken);
                     string requestBody = $"playerData={Uri.EscapeDataString(contentJson)}&gameID={gameID}";
 
                     StringContent content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");
@@ -431,6 +519,7 @@ public class GameHandler
             return tileData;
         }
 
+        gameMinute++;
         capturingMap = false;
     }
 
