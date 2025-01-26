@@ -362,23 +362,40 @@ public class GameHandler
             // Check if the "f" field exists and populate accordingly
             if (tileObject["f"] != null)
             {
-                switch(tileObject["f"].ToString())
+                PlayerFaction newOwner = PlayerFaction.None;
+                switch (tileObject["f"].ToString())
                 {
                     case "GREEN":
-                        tileData.owner = PlayerFaction.Green;
+                        newOwner = PlayerFaction.Green;
                         break;
                     case "RED":
-                        tileData.owner = PlayerFaction.Red;
+                        newOwner  = PlayerFaction.Red;
                         break;
                     case "NEUTRAL":
-                        tileData.owner = PlayerFaction.Neutral;
+                        newOwner = PlayerFaction.Neutral;
                         break;
                     case "BLUE":
-                        tileData.owner = PlayerFaction.Blue;
+                        newOwner = PlayerFaction.Blue;
                         break;
                     case "YELLOW":
-                        tileData.owner = PlayerFaction.Yellow;
+                        newOwner = PlayerFaction.Yellow;
                         break;
+                }
+                if(tileData.owner != newOwner)
+                {
+                    tileData.tileHeat += 1;
+                    tileData.owner = newOwner;
+                }
+            }
+
+            if (tileObject["v"] != null)
+            {
+                try
+                {
+                    tileData.victoryPoints = tileObject["v"].Value<int>();
+                }
+                catch (Exception)
+                {
                 }
             }
 

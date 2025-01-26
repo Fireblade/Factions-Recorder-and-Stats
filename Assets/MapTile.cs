@@ -12,6 +12,8 @@ public class MapTile
     public DateTime captureDate;
     public Player capturePlayer;
     public bool supplied = true;
+    public int victoryPoints = 0;
+    public int tileHeat = 0;
 
     public MapTile()
     {
