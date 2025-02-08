@@ -430,9 +430,9 @@ $mapHistoryJson = json_encode($mapHistory);
                         <?php foreach ($buildings as $building): ?>
                             <?php
                             if ($building['name'] === 'HQ') {
-                                $woodCost = $level >= $building['woodStart'] ? $building['woodCost'] * pow($gameHQCostScaling[0], $level - 1) : 0;
-                                $ironCost = $level >= $building['ironStart'] ? $building['ironCost'] * pow($gameHQCostScaling[1], $level - 1) : 0;
-                                $workerCost = $level >= $building['workerStart'] ? $building['workerCost'] * pow($gameHQCostScaling[2], $level - 1) : 0;
+                                $woodCost = $level-1 >= $building['woodStart'] ? $building['woodCost'] * pow($gameHQCostScaling[0], $level - 2) : 0;
+                                $ironCost = $level-1 >= $building['ironStart'] ? $building['ironCost'] * pow($gameHQCostScaling[1], $level - 2) : 0;
+                                $workerCost = $level-1 >= $building['workerStart'] ? $building['workerCost'] * pow($gameHQCostScaling[2], $level - 2) : 0;
                             } else {
                                 $woodCost = $level >= $building['woodStart'] ? $building['woodCost'] * pow($gameBuildingCostScaling[0], $level - 1) : 0;
                                 $ironCost = $level >= $building['ironStart'] ? $building['ironCost'] * pow($gameBuildingCostScaling[1], $level - 1) : 0;
@@ -487,7 +487,7 @@ $mapHistoryJson = json_encode($mapHistory);
             }
 
             if (document.getElementById(`teamNameAndConnected_${teams[i]}`)) {
-                document.getElementById(`teamNameAndConnected_${teams[i]}`).innerText = `${teams[i]} (${data.teamConnectedPlayers[i].toLocaleString()})`;
+                document.getElementById(`teamNameAndConnected_${teams[i]}`).innerText = teams[i] + ' (' +  data.teamConnectedPlayers[i].toLocaleString() + ' connected)';
             }
             if (document.getElementById(`teamPointsGain_${teams[i]}`)) {
                 document.getElementById(`teamPointsGain_${teams[i]}`).innerText = data.teamPointsGain[i].toLocaleString();
@@ -823,9 +823,16 @@ $mapHistoryJson = json_encode($mapHistory);
             buildings.forEach(building => {
                 let woodCost, ironCost, workerCost;
                 if (building.name === 'HQ') {
-                    woodCost = level >= building.woodStart ? building.woodCost * Math.pow(gameHQCostScaling[0], level - 1) : 0;
-                    ironCost = level >= building.ironStart ? building.ironCost * Math.pow(gameHQCostScaling[1], level - 1) : 0;
-                    workerCost = level >= building.workerStart ? building.workerCost * Math.pow(gameHQCostScaling[2], level - 1) : 0;
+                    if(level==1){
+						woodCost = 0;
+						ironCost = 0;
+						workerCost = 0;
+					}
+					else{
+                        woodCost = level-1 >= building.woodStart ? building.woodCost * Math.pow(gameHQCostScaling[0], level - 2) : 0;
+                        ironCost = level-1 >= building.ironStart ? building.ironCost * Math.pow(gameHQCostScaling[1], level - 2) : 0;
+                        workerCost = level-1 >= building.workerStart ? building.workerCost * Math.pow(gameHQCostScaling[2], level - 2) : 0;
+                    }
                 } else {
                     woodCost = level >= building.woodStart ? building.woodCost * Math.pow(gameBuildingCostScaling[0], level - 1) : 0;
                     ironCost = level >= building.ironStart ? building.ironCost * Math.pow(gameBuildingCostScaling[1], level - 1) : 0;

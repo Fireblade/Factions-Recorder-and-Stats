@@ -48,11 +48,6 @@ public class Manager : MonoBehaviour
 
         LoadApiTokens();
 
-        if (runAgents)
-        {
-            Building.InitializeBuildingData(null);
-        }
-
         //Open source description - Uncomment line to pull leaderboard data from a game
         //PullLeaderboardFromGame(20);
 
@@ -309,7 +304,7 @@ public class Manager : MonoBehaviour
 
                 if (data == "0 results")
                 {
-                    Debug.LogError("0 results returned from PHP script. Clearing game handlers list.");
+                    Debug.Log("0 results returned from PHP script. Clearing game handlers list.");
                     gameHandlers.Clear();
                     activeGames = 0;
                 }
@@ -333,7 +328,17 @@ public class Manager : MonoBehaviour
                         string mapName = parts[3];
                         int mapWidth = int.Parse(parts[4]);
                         int mapHeight = int.Parse(parts[5]);
-                        bool waitingToStart = bool.Parse(parts[6]);
+                        int victoryGoal = int.Parse(parts[6]);
+                        bool waitingToStart = bool.Parse(parts[7].ToLower());
+                        float hqIronMulti = float.Parse(parts[8]);
+                        float hqWoodMulti = float.Parse(parts[9]);
+                        float hqWorkerMulti = float.Parse(parts[10]);
+                        float buildingIronMulti = float.Parse(parts[11]);
+                        float buildingWoodMulti = float.Parse(parts[12]);
+                        float buildingWorkerMulti = float.Parse(parts[13]);
+                        int gameMinute = int.Parse(parts[14]);
+                        string averageSoldierBlocks = string.IsNullOrEmpty(parts[15]) ? "" : parts[15];
+                        string averageWorkerBlocks = string.IsNullOrEmpty(parts[16]) ? "" : parts[16];
 
                         GameHandler existingGameHandler = gameHandlers.Find(g => g.gameID == gameId && g.isTestGame == isTestGame);
                         if (existingGameHandler != null)
@@ -350,7 +355,7 @@ public class Manager : MonoBehaviour
                         else
                         {
                             Debug.Log($"New {(isGameActive ? "active " : "")}game found with ID: " + gameId + " and map: " + mapName + " with dimensions: " + mapWidth + "x" + mapHeight + ". Adding to list.");
-                            gameHandlers.Add(new GameHandler(gameId, isTestGame, isGameActive, mapName, mapWidth, mapHeight, waitingToStart));
+                            gameHandlers.Add(new GameHandler(gameId, isTestGame, isGameActive, mapName, mapWidth, mapHeight, waitingToStart, victoryGoal, hqIronMulti, hqWoodMulti, hqWorkerMulti, buildingIronMulti, buildingWoodMulti, buildingWorkerMulti, gameMinute,averageSoldierBlocks, averageWorkerBlocks));
                             if (isGameActive) activeGames += 1;
                             if (waitingToStart) gamesWaitingToStart += 1;
                         }
@@ -360,7 +365,7 @@ public class Manager : MonoBehaviour
         }
         catch (Exception ex)
         {
-            Debug.LogError("An error occurred: " + ex.Message);
+            //Debug.LogError("An error occurred: " + ex.Message);
         }
     }
 

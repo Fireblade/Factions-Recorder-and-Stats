@@ -20,18 +20,29 @@ if ($conn->connect_error) {
 }
 
 // Query to select active games
-$sql = "SELECT * FROM `ActiveGames` WHERE Active = 1";
+$sql = "SELECT `GameID`, `TestGame`, `Active`, `Map`, `MapWidth`, `MapHeight`, `VictoryGoal`, `waitingToStart`, `HQ_Iron_Multi`, `HQ_Wood_Multi`, `HQ_Worker_Multi`, `Building_Iron_Multi`, `Building_Wood_Multi`, `Building_Worker_Multi`, `GameMinute`, `AverageSoldierBlocks`, `AverageWorkerBlocks` FROM `ActiveGames` WHERE Active = 1 OR waitingToStart = 1";
 $result = $conn->query($sql);
 
 if ($result->num_rows > 0) {
     // Output data of each row
     while($row = $result->fetch_assoc()) {
-        echo $row["Game ID"] . ":" . 
+        echo $row["GameID"] . ":" . 
              ($row["TestGame"] ? 'true' : 'false') . ":" . 
              ($row["Active"] ? 'true' : 'false') . ":" . 
              $row["Map"] . ":" . 
              $row["MapWidth"] . ":" . 
-             $row["MapHeight"] . "\n";
+             $row["MapHeight"] . ":" . 
+             $row["VictoryGoal"] . ":" . 
+             ($row["waitingToStart"] ? 'true' : 'false') . ":" . 
+             $row["HQ_Iron_Multi"] . ":" . 
+             $row["HQ_Wood_Multi"] . ":" . 
+             $row["HQ_Worker_Multi"] . ":" . 
+             $row["Building_Iron_Multi"] . ":" . 
+             $row["Building_Wood_Multi"] . ":" . 
+             $row["Building_Worker_Multi"] . ":" . 
+             $row["GameMinute"] . ":" . 
+             $row["AverageSoldierBlocks"] . ":" . 
+             $row["AverageWorkerBlocks"] . "\n";
     }
 } else {
     echo "0 results";

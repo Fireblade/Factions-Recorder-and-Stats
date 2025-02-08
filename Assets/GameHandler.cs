@@ -26,6 +26,13 @@ public class GameHandler
     public int width = 50;
     public int height = 50;
     public bool waitingToStart = false;
+    private int victoryGoal;
+    private float hqIronMulti;
+    private float hqWoodMulti;
+    private float hqWorkerMulti;
+    private float buildingIronMulti;
+    private float buildingWoodMulti;
+    private float buildingWorkerMulti;
     public int gameMinute = 0;
     public int nextEloBlock = 480;
     public int eloBlockInterval = 480;
@@ -47,6 +54,9 @@ public class GameHandler
     public int[,] factionSentSoldiers = new int[60, 5]; //Records up to the last 60 minutes of soldier sent data
     public int[,] factionSentWorkers = new int[60, 5]; //records up to the last 60 minutes of worker sent data
     public int[] factionConnectedPlayers = new int[] { 0, 0, 0, 0, 0 };
+    public int[] factionCastlePoints = new int[] { 0, 0, 0, 0, 0 };
+    public int[] factionPlunder = new int[] { 0, 0, 0, 0, 0 };
+    public int totalFactionPlundered = 0;
 
 
     public List<int> gameSoldierBlocks = new List<int>();
@@ -66,7 +76,7 @@ public class GameHandler
         NewHandler();
     }
 
-    public GameHandler(int gameId, bool isTestGame, bool isGameActive, string mapName, int mapWidth, int mapHeight, bool waitingToStart)
+    public GameHandler(int gameId, bool isTestGame, bool isGameActive, string mapName, int mapWidth, int mapHeight, bool waitingToStart, int victoryGoal, float hqIronMulti, float hqWoodMulti, float hqWorkerMulti, float buildingIronMulti, float buildingWoodMulti, float buildingWorkerMulti, int gameMinute, string avgSoldierBlocks, string avgWorkerBlocks)
     {
         this.gameID = gameId;
         this.isTestGame = isTestGame;
@@ -75,7 +85,52 @@ public class GameHandler
         this.width = mapWidth;
         this.height = mapHeight;
         this.waitingToStart = waitingToStart;
-        NewHandler();
+        this.victoryGoal = victoryGoal;
+        this.hqIronMulti = hqIronMulti;
+        this.hqWoodMulti = hqWoodMulti;
+        this.hqWorkerMulti = hqWorkerMulti;
+        this.buildingIronMulti = buildingIronMulti;
+        this.buildingWoodMulti = buildingWoodMulti;
+        this.buildingWorkerMulti = buildingWorkerMulti;
+        this.gameMinute = gameMinute;
+
+        //set nextEloBlock to the next interval after current game minute.
+        //these intervals happen at a specific 8 hour game minute every time.
+        nextEloBlock = (gameMinute / eloBlockInterval) * eloBlockInterval + eloBlockInterval;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(avgSoldierBlocks) && avgSoldierBlocks != "")
+            {
+                gameSoldierBlocks = avgSoldierBlocks.Split(',').Select(int.Parse).ToList();
+            }
+            else
+            {
+                gameSoldierBlocks = new List<int>();
+            }
+
+            if (!string.IsNullOrEmpty(avgWorkerBlocks) && avgWorkerBlocks != "")
+            {
+                gameWorkerBlocks = avgWorkerBlocks.Split(',').Select(int.Parse).ToList();
+            }
+            else
+            {
+                gameWorkerBlocks = new List<int>();
+            }
+
+        }
+        catch (Exception)
+        {
+            Debug.Log("Error on new handler. Unable to set avgBlocks");
+        }
+        try
+        {
+            NewHandler();
+        }
+        catch (Exception)
+        {
+            Debug.Log("Error initializing new handler, new handler()");
+        }
     }
 
     public void NewHandler()
@@ -109,23 +164,60 @@ public class GameHandler
 
     public void Update()
     {
-        if(requestMapData)
+        if (requestMapData)
         {
             mapDataDelayTick -= Time.deltaTime;
-            if(mapDataDelayTick <= 0)
+            if (mapDataDelayTick <= 0)
             {
                 requestMapData = false;
                 CaptureMap();
                 mapDataDelayTick = 5;
-                if(gameMinute == nextEloBlock)
+                if (gameMinute == nextEloBlock)
                 {
                     CalculateEloBlock();
+                }
+                if (gameMinute % 120 == 0)
+                {
+                    //every 2 hours do this
+                    RecordSegment();
                 }
             }
         }
         if (!capturingMap && !capturingLeaderboard)
         {
             CheckPlayerDataToAdd();
+        }
+    }
+
+    private async void RecordSegment()
+    {
+        try
+        {
+            var contentData = playerData.Values.ToList();
+            var contentJson = JsonConvert.SerializeObject(contentData);
+
+            using (HttpClient client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add("API_KEY", Manager.apiToken);
+                string requestBody = $"playerData={Uri.EscapeDataString(contentJson)}&gameID={gameID}&gameMinute={Uri.EscapeDataString(gameMinute.ToString())}";
+
+                StringContent content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");
+
+                HttpResponseMessage response = await client.PostAsync("https://mclama.com/Factions/RecordSegment.php", content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    //Debug.Log("leaderboard data sent successfully");
+                }
+                else
+                {
+                    // Debug.LogError("Error sending leaderboard data: " + response.StatusCode);
+                }
+            }
+        }
+        catch (Exception)
+        {
+            Debug.Log($"Game minute {gameMinute} failed to record segment");
         }
     }
 
@@ -268,6 +360,8 @@ public class GameHandler
                 //Debug.Log("WorldMap Response: " + request.downloadHandler.text);
                 Debug.Log("Map data captured successfully");
                 string json = request.downloadHandler.text;
+
+                totalFactionPlundered = 0; //reset for this minute
 
                 // Parse the JSON response
                 //WorldData mapData = JsonUtility.FromJson<WorldData>(json);
@@ -501,6 +595,12 @@ public class GameHandler
                 try
                 {
                     tileData.victoryPoints = tileObject["v"].Value<int>();
+                    if (tileData.victoryPoints < factionCastlePoints[(int)tileData.owner])
+                    {
+                        //Faction has lost VP on their castle and has been plundered.
+                        totalFactionPlundered += factionCastlePoints[(int)tileData.owner] - tileData.victoryPoints;
+                    }
+                    factionCastlePoints[(int)tileData.owner] = tileData.victoryPoints;
                 }
                 catch (Exception)
                 {
