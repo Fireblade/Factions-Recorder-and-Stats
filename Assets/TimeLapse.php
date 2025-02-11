@@ -408,7 +408,7 @@ $mapHistoryJson = json_encode($mapHistory);
         </div>
 
         <div id="buildings" style="overflow: auto;">
-            <p style="font-size: 100%;">* Does not include any current, if any, Economic Scaling Event changes.</p>
+            <p style="font-size: 100%;">* Includes 1 revision of Economic Change.</p>
             <table border="1" id="buildingsTable">
                 <tr>
                     <th class="sticky-column">Level</th>
@@ -527,7 +527,7 @@ $mapHistoryJson = json_encode($mapHistory);
                         document.getElementById(`timeTillVPWin_${teams[i]}`).innerText = 'Infinite - Not gaining points';
                     }
                     else{
-                        let minutesTillWin = gameWinGoal / data.teamPointsGain[i];
+                        let minutesTillWin = (gameWinGoal-data.teamPoints[i]) / data.teamPointsGain[i];
 						let hours = Math.floor(minutesTillWin / 60);
 						let minutes = Math.floor(minutesTillWin % 60);
 						document.getElementById(`timeTillVPWin_${teams[i]}`).innerText = `${hours} hours, ${minutes} minutes`;
@@ -658,7 +658,7 @@ $mapHistoryJson = json_encode($mapHistory);
                         document.getElementById(`timeTillVPWin_${teams[i]}`).innerText = 'Infinite - Not gaining points';
                     }
                     else{
-                        let minutesTillWin = gameWinGoal / data.teamPointsGain[i];
+                        let minutesTillWin = (gameWinGoal-data.teamPoints[i]) / data.teamPointsGain[i];
 						let hours = Math.floor(minutesTillWin / 60);
 						let minutes = Math.floor(minutesTillWin % 60);
 						document.getElementById(`timeTillVPWin_${teams[i]}`).innerText = `${hours} hours, ${minutes} minutes`;
