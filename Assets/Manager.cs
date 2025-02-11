@@ -49,14 +49,18 @@ public class Manager : MonoBehaviour
         LoadApiTokens();
 
         //Open source description - Uncomment line to pull leaderboard data from a game
-        //PullLeaderboardFromGame(20);
+        //PullLeaderboardFromGame(22);
 
         // Other initialization code...
 
         Debug.Log("Starting PHP update thread...");
-        InvokeRepeating(nameof(StartPHPUpdateThread), 0f, 900f); // 900 seconds = 15 minutes
+        //InvokeRepeating(nameof(StartPHPUpdateThread), 0f, 900f); // 900 seconds = 15 minutes
 
         //TestApi();
+        for(int i=120; i <=4680; i += 120)
+        {
+            CheckElo(i);
+        }
 
 
         //To force a game, Use the line below.
@@ -401,6 +405,116 @@ public class Manager : MonoBehaviour
             }
         }
     }
+
+    public async void CheckElo(int urlMinute)
+    {
+        string url = "https://www.mclama.com/Factions/GameData/22/" + urlMinute +".txt";
+        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        {
+            UnityWebRequestAsyncOperation operation = request.SendWebRequest();
+
+            while (!operation.isDone)
+            {
+                await Task.Yield();
+            }
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string json = request.downloadHandler.text;
+
+                // Parse the JSON array
+                JArray jsonData = JArray.Parse(json);
+
+                List<Player> playerData = new List<Player>();
+
+                // Get player data and update our local list
+                foreach (var newPlayerData in jsonData)
+                {
+                    string playerName = newPlayerData["name"].ToString();
+                    int playerID = newPlayerData["id"].Value<int>();
+                    int sentSoldiers = newPlayerData["sentSoldiers"].Value<int>();
+                    int sentWorkers = newPlayerData["sentWorkers"].Value<int>();
+                    int hqLevel = newPlayerData["hqLevel"].Value<int>();
+                    PlayerFaction faction = GetFaction(newPlayerData["faction"].ToString());
+
+                    Player newPlayer = new Player(playerID, playerName)
+                    {
+                        id = playerID,
+                        sentSoldiers = sentSoldiers,
+                        sentWorkers = sentWorkers,
+                        hqLevel = hqLevel,
+                        faction = faction
+                    };
+
+                    playerData.Add(newPlayer);
+                }
+
+                // Count total soldiers, workers, and players with HQ level > 5
+                int totalSoldiers = 0;
+                int totalWorkers = 0;
+                int hqLevel5PlusCount = 0;
+
+                foreach (var player in playerData)
+                {
+                    //totalSoldiers += (player.sentSoldiers-11);
+                    totalSoldiers += player.sentSoldiers;
+                    totalWorkers += player.sentWorkers;
+                    if (player.hqLevel > 5)
+                    {
+                        hqLevel5PlusCount++;
+                    }
+                }
+
+                double avgBlockSoldiers = totalSoldiers / playerData.Count;
+                double avgBlockWorkers = totalWorkers / playerData.Count;
+
+                string output = $"Total Soldiers: {totalSoldiers}\nTotal Workers: {totalWorkers}\nPlayers with HQ Level > 5: {hqLevel5PlusCount}\nAverage soldiers: {avgBlockSoldiers}\nAverage Workers: {avgBlockWorkers}";
+                foreach (var player in playerData)
+                {
+                    output += $"\n{player.name},{player.sentSoldiers},{player.sentWorkers}";
+                }
+
+                //foreach (var player in playerData)
+                //{
+                //    double soldierScore = 0.66 * ((double)(player.sentSoldiers - 11) / avgBlockSoldiers) + 0.33 * Math.Sqrt((double)(player.sentSoldiers - 11) / avgBlockSoldiers);
+                //    double workerScore = 0.66 * ((double)player.sentWorkers / avgBlockWorkers) + 0.33 * Math.Sqrt((double)player.sentWorkers / avgBlockWorkers);
+                //    if(soldierScore + workerScore > 0.1f)
+                //        output += $"\n{player.name} - Soldier Score: {soldierScore.ToString("N4")}, Worker Score: {workerScore.ToString("N4")}";
+                //}
+
+                // Log the results
+                Debug.Log(output);
+
+                // Write the output to a file
+                int hour = 8 + (urlMinute / 60);
+                string filePath = $@"C:\Users\fireb\Desktop\factions\Game 22\Hour {hour}.txt";
+                File.WriteAllText(filePath, output);
+            }
+            else
+            {
+                Debug.LogError("Error: " + request.error);
+            }
+        }
+
+        PlayerFaction GetFaction(string text)
+        {
+            switch (text)
+            {
+                case "GREEN":
+                    return PlayerFaction.Green;
+                case "RED":
+                    return PlayerFaction.Red;
+                case "NEUTRAL":
+                    return PlayerFaction.Neutral;
+                case "BLUE":
+                    return PlayerFaction.Blue;
+                case "YELLOW":
+                    return PlayerFaction.Yellow;
+            }
+            return PlayerFaction.None;
+        }
+    }
+
 
 }
 

@@ -62,6 +62,24 @@ logDebug("JSON decoded successfully");
 // Table name
 $tableName = "Game" . $gameID . "Leaderboards";
 
+// Check if the table exists
+$tableExistsQuery = "SHOW TABLES LIKE '$tableName'";
+$result = $conn->query($tableExistsQuery);
+if ($result === false) {
+    logDebug("Table existence check failed: " . $conn->error);
+    die("Table existence check failed: " . $conn->error);
+}
+
+if ($result->num_rows == 0) {
+    // Table does not exist, create it by copying TemplateGameLeaderboards
+    $createTableQuery = "CREATE TABLE $tableName LIKE TemplateGameLeaderboards";
+    if ($conn->query($createTableQuery) === false) {
+        logDebug("Table creation failed: " . $conn->error);
+        die("Table creation failed: " . $conn->error);
+    }
+    logDebug("Table $tableName created successfully");
+}
+
 // Iterate through each player data
 foreach ($data as $player) {
     $playerID = $player['PlayerID'];

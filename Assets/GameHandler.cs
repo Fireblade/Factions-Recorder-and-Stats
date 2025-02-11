@@ -256,10 +256,10 @@ public class GameHandler
             var player = playerEntry.Value;
 
             int blockSoldiers = player.sentSoldiers - player.recordedEloSoldiers;
-            float soldierScore = Mathf.Sqrt(blockSoldiers - avgBlockSoldiers);
+            float soldierScore = Mathf.Sqrt(blockSoldiers / avgBlockSoldiers);
 
             int blockWorkers = player.sentWorkers - player.recordedEloWorkers;
-            float workerScore = Mathf.Sqrt(blockWorkers - avgBlockWorkers);
+            float workerScore = Mathf.Sqrt(blockWorkers / avgBlockWorkers);
 
             float totalScore = (float)Math.Round(soldierScore + workerScore, 5);
             while (player.scoreBlocks.Count < (totalBlocksChecked-1))
