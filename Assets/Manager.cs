@@ -10,6 +10,8 @@ using System.Linq;
 using System.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using UnityEditor;
+using Unity.Mathematics;
 
 public class Manager : MonoBehaviour
 {
@@ -37,7 +39,10 @@ public class Manager : MonoBehaviour
     public bool appendLocalFiles = false;
     public int activeGames = 0, gamesWaitingToStart = 0;
 
-
+    public Dictionary<int, List<Player>> pData = new Dictionary<int, List<Player>>();
+    public int dataPullCount = 0;
+    public Dictionary<int, int> playerGUID = new Dictionary<int, int>();
+    public bool loadedPlayerGuids = false;
 
     // Start is called before the first frame update
     void Start()
@@ -57,14 +62,160 @@ public class Manager : MonoBehaviour
         //InvokeRepeating(nameof(StartPHPUpdateThread), 0f, 900f); // 900 seconds = 15 minutes
 
         //TestApi();
-        for(int i=120; i <=4680; i += 120)
-        {
-            CheckElo(i);
-        }
+
+        LoadPlayerGuids();
+        DetermineScores();
 
 
         //To force a game, Use the line below.
         //gameHandlers.Add(new GameHandler(20, false, false, "Volbadihr", 50, 50, true));
+    }
+
+    private async void DetermineScores()
+    {
+        while (loadedPlayerGuids == false)
+        {
+            await Task.Yield();
+        }
+
+        int maxLength = 4680;
+        int rollingBlock = 120;
+        for (int i = rollingBlock; i <= maxLength; i += rollingBlock)
+        {
+            GetPlayerData(i);
+        }
+        while (dataPullCount< maxLength / rollingBlock)
+        {
+            await Task.Yield();
+        }
+
+        int blockLength = 16 * 60; // 24 hours * 60 minutes 
+        float considerPercentage = 0.1f; //if your score is less than this percent of the average, you will not be considered.
+        Dictionary<int, List<PlayerScore>> playerBlocks = new Dictionary<int, List<PlayerScore>>();
+        for (int i = rollingBlock - blockLength; i <= maxLength; i += rollingBlock)
+        {
+            int minSegment = Mathf.Max(rollingBlock, i);
+            int block = Mathf.CeilToInt(i / blockLength);
+            double avgTop5Soldiers = 0; //This is the average soldiers sent of the top 5 players.
+            double avgTop5Workers = 0; //This is the average workers sent of the top 5 players.
+            List<Player> list1 = pData[minSegment].OrderBy(p => p.sentSoldiers).ToList();
+            List<Player> list2 = pData[Mathf.Min(maxLength, minSegment + blockLength)].OrderBy(p => p.sentSoldiers).ToList();
+            for (int j = 0; j < 5; j++)
+            {
+                avgTop5Soldiers += list2.Find(p => p.id == list1[j].id).sentSoldiers - list1[j].sentSoldiers;
+            }
+            list1 = pData[minSegment].OrderBy(p => p.sentWorkers).ToList();
+            for (int j = 0; j < 5; j++)
+            {
+                avgTop5Workers += list2.Find(p => p.id == list1[j].id).sentWorkers - list1[j].sentWorkers;
+            }
+            avgTop5Soldiers /= 5;
+            avgTop5Workers /= 5;
+
+            //Now lets count how many soldiers and workers are above the considerPercentage of the top5 in this block.
+            int soldiersAbove = 0;
+            int workersAbove = 0;
+            double totalSoldiers = 0;
+            double totalWorkers = 0;
+            foreach (Player player in pData[minSegment])
+            {
+                int sentSoldiers = 0;
+                int sentWorkers = 0;
+                try
+                {
+                    sentSoldiers = pData[Mathf.Min(maxLength, minSegment + blockLength)].Find(p => p.id == player.id).sentSoldiers - player.sentSoldiers;
+                }
+                catch (Exception)
+                {
+                }
+                if (sentSoldiers > avgTop5Soldiers * considerPercentage)
+                {
+                    soldiersAbove++;
+                    totalSoldiers += sentSoldiers;
+                }
+
+                try
+                {
+                    sentWorkers = pData[Mathf.Min(maxLength, minSegment + blockLength)].Find(p => p.id == player.id).sentWorkers - player.sentWorkers;
+                }
+                catch (Exception)
+                {
+                }
+                if (sentWorkers > avgTop5Workers * considerPercentage)
+                {
+                    workersAbove++;
+                    totalWorkers += sentWorkers;
+                }
+            }
+            double soldierAverage = totalSoldiers / soldiersAbove;
+            double workerAverage = totalWorkers / workersAbove;
+
+            playerBlocks.Add(i, new List<PlayerScore>());
+            double multiplier = 1;
+            if (block == 0) multiplier = 0.33d;
+            else if (block == 3) multiplier = 1.5d;
+            foreach (Player player in pData[minSegment])
+            {
+                if (i == maxLength) continue;
+                int sentSoldiers = 0;
+                int sentWorkers = 0;
+
+try
+                {
+                    sentSoldiers = pData[Mathf.Min(maxLength, minSegment + blockLength)].Find(p => p.id == player.id).sentSoldiers - player.sentSoldiers;
+                }
+                catch (Exception)
+                {
+                }
+                try
+                {
+                    sentWorkers = pData[Mathf.Min(maxLength, minSegment + blockLength)].Find(p => p.id == player.id).sentWorkers - player.sentWorkers;
+                }
+                catch (Exception)
+                {
+                }
+                //double soldierScore = (0.66 * (sentSoldiers / soldierAverage) + 0.33 * Math.Sqrt(sentSoldiers / soldierAverage)) * 100d * multiplier;
+                //double workerScore = (0.66 * (sentWorkers / workerAverage) + 0.33 * Math.Sqrt(sentWorkers / workerAverage)) * 100d * multiplier;
+
+                double soldierScore = (sentSoldiers / soldierAverage) * 100d;
+                double workerScore = (sentWorkers / workerAverage) * 100d;
+                if (sentSoldiers < avgTop5Soldiers * considerPercentage)
+                {
+                    soldierScore = 0;
+                }
+                if (sentWorkers < avgTop5Workers * considerPercentage)
+                {
+                    workerScore = 0;
+                }
+
+                playerBlocks[i].Add(new PlayerScore(player.id, player.name, sentSoldiers, sentWorkers, (float)soldierScore, (float)workerScore));
+            }
+        }
+
+        string output = "";
+        Dictionary<int, string> playerStrings = new Dictionary<int, string>();
+        Dictionary<int, double> playerTotalScore = new Dictionary<int, double>();
+        //now lets iterate through every player in every playerBlock and print out their name, Then their scores with comma separation. Their score is their Soldier + Worker score added together. Example: Bob,1,2,1,5
+        foreach (KeyValuePair<int, List<PlayerScore>> kvp in playerBlocks)
+        {
+            foreach (PlayerScore player in kvp.Value)
+            {
+                if (!playerStrings.ContainsKey(player.id))
+                {
+                    playerStrings.Add(player.id, GetPlayerGUID(player.id) + "-<score>");
+                    playerTotalScore.Add(player.id, 0);
+                }
+                playerStrings[player.id] += $"-{(player.soldierScore + player.workerScore).ToString("N0")}";
+                playerTotalScore[player.id] += (player.soldierScore + player.workerScore);
+            }
+        }
+        //now lets debug print the scores for every player.
+        foreach (KeyValuePair<int, string> kvp in playerStrings)
+        {
+            if(playerTotalScore[kvp.Key] > 0)
+                output += $"{(kvp.Value).Replace("<score>", playerTotalScore[kvp.Key].ToString("N0"))}\n";
+        }
+        Debug.Log(output);
     }
 
 
@@ -343,6 +494,8 @@ public class Manager : MonoBehaviour
                         int gameMinute = int.Parse(parts[14]);
                         string averageSoldierBlocks = string.IsNullOrEmpty(parts[15]) ? "" : parts[15];
                         string averageWorkerBlocks = string.IsNullOrEmpty(parts[16]) ? "" : parts[16];
+                        int minuteSplits = int.Parse(parts[17]);
+                        GameMode gameMode = (GameMode)Enum.Parse(typeof(GameMode), parts[18]); // Parse the game mode from the string
 
                         GameHandler existingGameHandler = gameHandlers.Find(g => g.gameID == gameId && g.isTestGame == isTestGame);
                         if (existingGameHandler != null)
@@ -359,7 +512,7 @@ public class Manager : MonoBehaviour
                         else
                         {
                             Debug.Log($"New {(isGameActive ? "active " : "")}game found with ID: " + gameId + " and map: " + mapName + " with dimensions: " + mapWidth + "x" + mapHeight + ". Adding to list.");
-                            gameHandlers.Add(new GameHandler(gameId, isTestGame, isGameActive, mapName, mapWidth, mapHeight, waitingToStart, victoryGoal, hqIronMulti, hqWoodMulti, hqWorkerMulti, buildingIronMulti, buildingWoodMulti, buildingWorkerMulti, gameMinute,averageSoldierBlocks, averageWorkerBlocks));
+                            gameHandlers.Add(new GameHandler(gameId, isTestGame, isGameActive, mapName, mapWidth, mapHeight, waitingToStart, victoryGoal, hqIronMulti, hqWoodMulti, hqWorkerMulti, buildingIronMulti, buildingWoodMulti, buildingWorkerMulti, gameMinute,averageSoldierBlocks, averageWorkerBlocks, minuteSplits, gameMode));
                             if (isGameActive) activeGames += 1;
                             if (waitingToStart) gamesWaitingToStart += 1;
                         }
@@ -406,7 +559,7 @@ public class Manager : MonoBehaviour
         }
     }
 
-    public async void CheckElo(int urlMinute)
+    public async void GetPlayerData(int urlMinute)
     {
         string url = "https://www.mclama.com/Factions/GameData/22/" + urlMinute +".txt";
         using (UnityWebRequest request = UnityWebRequest.Get(url))
@@ -449,6 +602,8 @@ public class Manager : MonoBehaviour
                     playerData.Add(newPlayer);
                 }
 
+                pData.Add(urlMinute, playerData);
+
                 // Count total soldiers, workers, and players with HQ level > 5
                 int totalSoldiers = 0;
                 int totalWorkers = 0;
@@ -484,11 +639,12 @@ public class Manager : MonoBehaviour
 
                 // Log the results
                 Debug.Log(output);
+                dataPullCount++;
 
                 // Write the output to a file
-                int hour = 8 + (urlMinute / 60);
-                string filePath = $@"C:\Users\fireb\Desktop\factions\Game 22\Hour {hour}.txt";
-                File.WriteAllText(filePath, output);
+                //int hour = 8 + (urlMinute / 60);
+                //string filePath = $@"C:\Users\fireb\Desktop\factions\Game 22\Hour {hour}.txt";
+                //File.WriteAllText(filePath, output);
             }
             else
             {
@@ -513,6 +669,66 @@ public class Manager : MonoBehaviour
             }
             return PlayerFaction.None;
         }
+    }
+    private void LoadPlayerGuids()
+    {
+        string filePath = Path.Combine(Application.persistentDataPath, "playerGUIDs.json");
+        if (File.Exists(filePath))
+        {
+            string json = File.ReadAllText(filePath);
+            playerGUID = JsonConvert.DeserializeObject<Dictionary<int, int>>(json);
+            loadedPlayerGuids = true;
+        }
+        else
+        {
+            Debug.Log("Player GUIDs file not found.... creating");
+            loadedPlayerGuids = true; //Empty file, we can continue.
+            //create file so it can exist next time.
+            File.WriteAllText(filePath, JsonConvert.SerializeObject(playerGUID));
+
+        }
+    }
+
+    private void SavePlayerGuids()
+    {
+        string filePath = Path.Combine(Application.persistentDataPath, "playerGUIDs.json");
+        File.WriteAllText(filePath, JsonConvert.SerializeObject(playerGUID));
+    }
+
+    public void AddPlayerGUID(int id, int guid)
+    {
+        if (!playerGUID.ContainsKey(id))
+        {
+            playerGUID.Add(id, guid);
+            SavePlayerGuids();
+        }
+    }
+
+    public void RemovePlayerGUID(int id)
+    {
+        if (playerGUID.ContainsKey(id))
+        {
+            playerGUID.Remove(id);
+            SavePlayerGuids();
+        }
+    }
+
+    public int GetPlayerGUID(int id)
+    {
+        if (playerGUID.ContainsKey(id))
+        {
+            return playerGUID[id];
+        }
+        //else, we need to create their GUID.
+        //Set their GUID to a random number between 1000 and 9999. And make sure there is no duplicates.
+        int guid = UnityEngine.Random.Range(1000, 10000);
+        while (playerGUID.ContainsValue(guid))
+        {
+            guid = UnityEngine.Random.Range(1000, 10000);
+        }
+        playerGUID.Add(id, guid);
+        SavePlayerGuids();
+        return guid;
     }
 
 

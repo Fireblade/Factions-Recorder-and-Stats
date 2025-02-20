@@ -37,6 +37,8 @@ public class GameHandler
     public int nextEloBlock = 480;
     public int eloBlockInterval = 480;
     public int totalBlocksChecked = 0;
+    public int minuteSplit = 60;
+    public GameMode gameMode = GameMode.Standard;
 
     public DateTime gameStart;
 
@@ -76,7 +78,7 @@ public class GameHandler
         NewHandler();
     }
 
-    public GameHandler(int gameId, bool isTestGame, bool isGameActive, string mapName, int mapWidth, int mapHeight, bool waitingToStart, int victoryGoal, float hqIronMulti, float hqWoodMulti, float hqWorkerMulti, float buildingIronMulti, float buildingWoodMulti, float buildingWorkerMulti, int gameMinute, string avgSoldierBlocks, string avgWorkerBlocks)
+    public GameHandler(int gameId, bool isTestGame, bool isGameActive, string mapName, int mapWidth, int mapHeight, bool waitingToStart, int victoryGoal, float hqIronMulti, float hqWoodMulti, float hqWorkerMulti, float buildingIronMulti, float buildingWoodMulti, float buildingWorkerMulti, int gameMinute, string avgSoldierBlocks, string avgWorkerBlocks, int minuteSplit, GameMode gameMode)
     {
         this.gameID = gameId;
         this.isTestGame = isTestGame;
@@ -93,6 +95,8 @@ public class GameHandler
         this.buildingWoodMulti = buildingWoodMulti;
         this.buildingWorkerMulti = buildingWorkerMulti;
         this.gameMinute = gameMinute;
+        this.minuteSplit = minuteSplit;
+        this.gameMode = gameMode;
 
         //set nextEloBlock to the next interval after current game minute.
         //these intervals happen at a specific 8 hour game minute every time.
@@ -172,13 +176,15 @@ public class GameHandler
                 requestMapData = false;
                 CaptureMap();
                 mapDataDelayTick = 5;
-                if (gameMinute == nextEloBlock)
+                if(gameMode == GameMode.Standard)
+                    if (gameMinute == nextEloBlock)
+                    {
+                        CalculateEloBlock();
+                    }
+
+                if (gameMinute % minuteSplit == 0)
                 {
-                    CalculateEloBlock();
-                }
-                if (gameMinute % 120 == 0)
-                {
-                    //every 2 hours do this
+                    //every minuteSplit do this.
                     RecordSegment();
                 }
             }
@@ -1077,4 +1083,11 @@ public class GameHandler
         }
     }
 
+}
+
+public enum GameMode
+{
+    Flash,
+    Short,
+    Standard,
 }

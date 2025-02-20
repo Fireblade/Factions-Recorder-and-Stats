@@ -20,7 +20,7 @@ if ($conn->connect_error) {
 }
 
 // Query to select active games
-$sql = "SELECT `GameID`, `TestGame`, `Active`, `Map`, `MapWidth`, `MapHeight`, `VictoryGoal`, `waitingToStart`, `HQ_Iron_Multi`, `HQ_Wood_Multi`, `HQ_Worker_Multi`, `Building_Iron_Multi`, `Building_Wood_Multi`, `Building_Worker_Multi`, `GameMinute`, `AverageSoldierBlocks`, `AverageWorkerBlocks` FROM `ActiveGames` WHERE Active = 1 OR waitingToStart = 1";
+$sql = "SELECT `GameID`, `TestGame`, `Active`, `Map`, `MapWidth`, `MapHeight`, `VictoryGoal`, `waitingToStart`, `HQ_Iron_Multi`, `HQ_Wood_Multi`, `HQ_Worker_Multi`, `Building_Iron_Multi`, `Building_Wood_Multi`, `Building_Worker_Multi`, `GameMinute`, `AverageSoldierBlocks`, `AverageWorkerBlocks`, `MinuteSplit`, `GameMode` FROM `ActiveGames` WHERE Active = 1 OR waitingToStart = 1";
 $result = $conn->query($sql);
 
 if ($result->num_rows > 0) {
@@ -42,7 +42,9 @@ if ($result->num_rows > 0) {
              $row["Building_Worker_Multi"] . ":" . 
              $row["GameMinute"] . ":" . 
              $row["AverageSoldierBlocks"] . ":" . 
-             $row["AverageWorkerBlocks"] . "\n";
+             $row["AverageWorkerBlocks"] . ":" . 
+             $row["MinuteSplit"] . ":" . 
+             $row["GameMode"] . "\n";
     }
 } else {
     echo "0 results";

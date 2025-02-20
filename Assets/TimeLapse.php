@@ -154,170 +154,317 @@ $mapHistoryJson = json_encode($mapHistory);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Time-lapse Viewer</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        #container {
-            display: flex;
-            flex-direction: row;
-            height: 100%;
-        }
-        #viewer {
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 0;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+            #topBanner {
+                background-color: #333;
+                color: white;
+                padding: 10px;
+                text-align: center;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            #container {
+                display: flex;
+                flex-direction: row;
+                height: 100%;
+            }
             #viewer {
-                width: 60%;
-                min-width: 40%;
+                width: 67%;
                 height: 100%;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: flex-start;
             }
-            width: 67%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-        }
-        #map {
-            width: fit-content;
-            aspect-ratio: 1;
-            height: 80%;
-            border: 1px solid #ccc;
-            position: relative;
-        }
-        .tile {
-            position: absolute;
-            box-sizing: border-box;
-            border: 1px solid rgba(0, 0, 0, 0.5);
-        }
-        .tile.transparent {
-            border: none;
-        }
-        #gameNumberContainer {
-            display: flex;
-            align-items: center;
-            width: 80%;
-            justify-content: space-between;
-        }
-        #gameNumber {
-            font-size: 1.2em;
-        }
-        #status {
-            font-size: 1.2em;
-            margin-left: 10px;
-        }
-        #slider {
-            margin-top: 10px;
-            width: 100%;
-        }
-         #gameExtraInfo {
-            display: flex;
-            align-items: center;
-            width: 80%;
-            justify-content: space-between;
-        }
-         #gameExtraInfoLine2 {
-            display: flex;
-            align-items: center;
-            width: 80%;
-            justify-content: space-between;
-        }
-        #dateDisplay {
-            margin-top: 10px;
-            align-self: flex-start;
-        }
-        #gridToggle {
-            margin-top: 10px;
-            align-self: flex-end;
-        }
-        #instructions {
-            margin-top: 10px;
-            font-size: 0.9em;
-            color: #555;
-            align-self: flex-start;
-        }
-        #autoplay {
-            margin-top: 10px;
-            font-size: 0.9em;
-            color: #555;
-            align-self: flex-end;
-        }
-        #autoplay label, #autoplay select {
-            display: inline-block;
-        }
-        #infoPanel {
-            width: 40%;
-            min-width: 33%;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-        }
-        #buttons {
-            display: flex;
-            justify-content: space-around;
-            margin-bottom: 6px;
-        }
-        #overview, #buildings {
-            display: none;
-        }
-        #overview.active, #buildings.active {
-            display: block;
-        }
-        .team-table {
-            width: 100%;
-            margin-bottom: 6px;
-            font-size: 0.9em;
-        }
-        .team-table th, .team-table td {
-            padding: 2px;
-            text-align: left;
-        }
-        .status {
-            font-weight: bold;
-            color: green;
-        }
-        .sticky-column {
-            position: -webkit-sticky; /* For Safari */
-            position: sticky;
-            left: 0;
-            background-color: white; /* Optional: to ensure the background is consistent */
-            z-index: 1; /* Ensure it stays on top of other content */
-        }
-        .odd-row {
-            background-color: #f2f2f2; /* Slightly darker background for odd rows */
-        }
-        .wood-column {
-            background-color: #f5deb3; /* Light brown for wood columns */
-        }
-        .iron-column {
-            background-color: #add8e6; /* Light blue for iron columns */
-        }
-        .worker-column {
-            background-color: #ffffe0; /* Light yellow for worker columns */
-        }
+            #map {
+                width: fit-content;
+                aspect-ratio: 1;
+                height: 80%;
+                border: 1px solid #ccc;
+                position: relative;
+            }
+            .tile {
+                position: absolute;
+                box-sizing: border-box;
+                border: 1px solid rgba(0, 0, 0, 0.5);
+            }
+            .tile.transparent {
+                border: none;
+            }
+            #gameNumberContainer {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            #gameNumber {
+                font-size: 1.2em;
+            }
+            #status {
+                font-size: 1.2em;
+                margin-left: 10px;
+            }
+            #slider {
+                margin-top: 10px;
+                width: 100%;
+            }
+            #gameExtraInfo {
+                display: flex;
+                align-items: center;
+                width: 80%;
+                justify-content: space-between;
+            }
+            #gameExtraInfoLine2 {
+                display: flex;
+                align-items: center;
+                width: 80%;
+                justify-content: space-between;
+            }
+            #dateDisplay {
+                margin-top: 10px;
+                align-self: flex-start;
+            }
+            #gridToggle {
+                margin-top: 10px;
+                align-self: flex-end;
+            }
+            #instructions {
+                margin-top: 10px;
+                font-size: 0.9em;
+                color: #555;
+                align-self: flex-start;
+            }
+            #autoplay {
+                margin-top: 10px;
+                font-size: 0.9em;
+                color: #555;
+                align-self: flex-end;
+            }
+            #autoplay label, #autoplay select {
+                display: inline-block;
+            }
+            #infoPanel {
+                width: 40%;
+                min-width: 33%;
+                padding: 10px;
+                display: flex;
+                flex-direction: column;
+                overflow-y: auto;
+            }
+            #buttons {
+                display: flex;
+                justify-content: space-around;
+                margin-bottom: 6px;
+            }
+            #overview, #buildings {
+                display: none;
+            }
+            #overview.active, #buildings.active {
+                display: block;
+            }
+            .team-table {
+                width: 100%;
+                margin-bottom: 6px;
+                font-size: 0.9em;
+            }
+            .team-table th, .team-table td {
+                padding: 2px;
+                text-align: left;
+            }
+            .status {
+                font-weight: bold;
+                color: green;
+            }
+            .sticky-column {
+                position: -webkit-sticky; /* For Safari */
+                position: sticky;
+                left: 0;
+                background-color: white; /* Optional: to ensure the background is consistent */
+                z-index: 1; /* Ensure it stays on top of other content */
+            }
+            .odd-row {
+                background-color: #f2f2f2; /* Slightly darker background for odd rows */
+            }
+            .wood-column {
+                background-color: #f5deb3; /* Light brown for wood columns */
+            }
+            .iron-column {
+                background-color: #add8e6; /* Light blue for iron columns */
+            }
+            .worker-column {
+                background-color: #ffffe0; /* Light yellow for worker columns */
+            }            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 0;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+            #topBanner {
+                background-color: #333;
+                color: white;
+                padding: 10px;
+                text-align: center;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            #container {
+                display: flex;
+                flex-direction: row;
+                height: 100%;
+            }
+            #viewer {
+                width: 67%;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: flex-start;
+            }
+            #map {
+                width: fit-content;
+                aspect-ratio: 1;
+                height: 80%;
+                border: 1px solid #ccc;
+                position: relative;
+            }
+            .tile {
+                position: absolute;
+                box-sizing: border-box;
+                border: 1px solid rgba(0, 0, 0, 0.5);
+            }
+            .tile.transparent {
+                border: none;
+            }
+            #gameNumberContainer {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            #gameNumber {
+                font-size: 1.2em;
+            }
+            #status {
+                font-size: 1.2em;
+                margin-left: 10px;
+            }
+            #slider {
+                margin-top: 10px;
+                width: 100%;
+            }
+            #gameExtraInfo {
+                display: flex;
+                align-items: center;
+                width: 80%;
+                justify-content: space-between;
+            }
+            #gameExtraInfoLine2 {
+                display: flex;
+                align-items: center;
+                width: 80%;
+                justify-content: space-between;
+            }
+            #dateDisplay {
+                margin-top: 10px;
+                align-self: flex-start;
+            }
+            #gridToggle {
+                margin-top: 10px;
+                align-self: flex-end;
+            }
+            #instructions {
+                margin-top: 10px;
+                font-size: 0.9em;
+                color: #555;
+                align-self: flex-start;
+            }
+            #autoplay {
+                margin-top: 10px;
+                font-size: 0.9em;
+                color: #555;
+                align-self: flex-end;
+            }
+            #autoplay label, #autoplay select {
+                display: inline-block;
+            }
+            #infoPanel {
+                width: 40%;
+                min-width: 33%;
+                padding: 10px;
+                display: flex;
+                flex-direction: column;
+                overflow-y: auto;
+            }
+            #buttons {
+                display: flex;
+                justify-content: space-around;
+                margin-bottom: 6px;
+            }
+            #overview, #buildings {
+                display: none;
+            }
+            #overview.active, #buildings.active {
+                display: block;
+            }
+            .team-table {
+                width: 100%;
+                margin-bottom: 6px;
+                font-size: 0.9em;
+            }
+            .team-table th, .team-table td {
+                padding: 2px;
+                text-align: left;
+            }
+            .status {
+                font-weight: bold;
+                color: green;
+            }
+            .sticky-column {
+                position: -webkit-sticky; /* For Safari */
+                position: sticky;
+                left: 0;
+                background-color: white; /* Optional: to ensure the background is consistent */
+                z-index: 1; /* Ensure it stays on top of other content */
+            }
+            .odd-row {
+                background-color: #f2f2f2; /* Slightly darker background for odd rows */
+            }
+            .wood-column {
+                background-color: #f5deb3; /* Light brown for wood columns */
+            }
+            .iron-column {
+                background-color: #add8e6; /* Light blue for iron columns */
+            }
+            .worker-column {
+                background-color: #ffffe0; /* Light yellow for worker columns */
+            }
     </style>
 </head>
 <body>
 
+<div id="topBanner">
+    <div id="gameNumberContainer">
+        <select id="gameNumber" onchange="updateGame()">
+            <?php foreach ($games as $game): ?>
+                <option value="<?php echo $game['prefix'] . '_' . $game['number']; ?>" <?php echo ($game['prefix'] === $selectedGamePrefix && $game['number'] == $selectedGameNumber) ? 'selected' : ''; ?>>
+                    <?php echo $game['prefix'] . ' ' . $game['number']; ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    <div id="status">Game Status</div>
+</div>
 <div id="container">
     <div id="viewer">
-        <div id="gameNumberContainer">
-            <select id="gameNumber" onchange="updateGame()">
-                <?php foreach ($games as $game): ?>
-                    <option value="<?php echo $game['prefix'] . '_' . $game['number']; ?>" <?php echo ($game['prefix'] === $selectedGamePrefix && $game['number'] == $selectedGameNumber) ? 'selected' : ''; ?>>
-                        <?php echo $game['prefix'] . ' ' . $game['number']; ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-            <div id="status" class="status">Downloading data...</div>
-        </div>
         <div id="map">
             <img id="backgroundImage" src="Maps/<?php echo $mapName . ".png"; ?>" alt="Map Image" style="height: 100%; width: auto;">
         </div>
@@ -874,6 +1021,8 @@ $mapHistoryJson = json_encode($mapHistory);
         url.searchParams.delete('minute');
         history.replaceState(null, '', url.toString());
     }
+
+
 
     slider.addEventListener('input', () => updateMap(slider.value));
     updateMap(slider.value);
