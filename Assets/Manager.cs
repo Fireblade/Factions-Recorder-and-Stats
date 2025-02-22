@@ -64,53 +64,64 @@ public class Manager : MonoBehaviour
         //TestApi();
 
         LoadPlayerGuids();
-        DetermineScores();
+        DetermineScores(23, 1638, 48*2, 432*2, 2, 1);
 
 
         //To force a game, Use the line below.
         //gameHandlers.Add(new GameHandler(20, false, false, "Volbadihr", 50, 50, true));
     }
 
-    private async void DetermineScores()
+    private async void DetermineScores(int gameID, int maxLength, int splitTime, int blockLength, float soldierMulti, float workerMulti)
     {
         while (loadedPlayerGuids == false)
         {
             await Task.Yield();
         }
 
-        int maxLength = 4680;
-        int rollingBlock = 120;
-        for (int i = rollingBlock; i <= maxLength; i += rollingBlock)
+        for (int i = splitTime; i <= maxLength; i += splitTime)
         {
-            GetPlayerData(i);
+            GetPlayerData(i, gameID);
         }
-        while (dataPullCount< maxLength / rollingBlock)
+        if (!pData.ContainsKey(maxLength))
+        {
+            GetPlayerData(maxLength, gameID);
+        }
+        while (dataPullCount < maxLength / splitTime)
         {
             await Task.Yield();
         }
 
-        int blockLength = 16 * 60; // 24 hours * 60 minutes 
+        double featherBlocks = blockLength / splitTime;
         float considerPercentage = 0.1f; //if your score is less than this percent of the average, you will not be considered.
         Dictionary<int, List<PlayerScore>> playerBlocks = new Dictionary<int, List<PlayerScore>>();
-        for (int i = rollingBlock - blockLength; i <= maxLength; i += rollingBlock)
+        for (int i = splitTime - blockLength; i <= maxLength; i += splitTime)
         {
-            int minSegment = Mathf.Max(rollingBlock, i);
+            int minSegment = Mathf.Max(splitTime, i);
             int block = Mathf.CeilToInt(i / blockLength);
             double avgTop5Soldiers = 0; //This is the average soldiers sent of the top 5 players.
             double avgTop5Workers = 0; //This is the average workers sent of the top 5 players.
             List<Player> list1 = pData[minSegment].OrderBy(p => p.sentSoldiers).ToList();
             List<Player> list2 = pData[Mathf.Min(maxLength, minSegment + blockLength)].OrderBy(p => p.sentSoldiers).ToList();
-            for (int j = 0; j < 5; j++)
+
+            //int soldierBracketBasis = Mathf.Clamp((int)(pData.Values.SelectMany(players => players).Count(player => player.sentSoldiers > 10) * 0.15f), 3, 20);
+            //int workerBracketBasis = Mathf.Clamp((int)(pData.Values.SelectMany(players => players).Count(player => player.sentWorkers > 10) * 0.15f), 3, 20);
+
+            int soldierBracketBasis = 5;
+            int workerBracketBasis = 5;
+
+            Debug.Log($"block: {block}, Soldier Bracket Basis: {soldierBracketBasis}, Worker Bracket Basis: {workerBracketBasis}");
+            for (int j = 0; j < soldierBracketBasis; j++)
             {
                 avgTop5Soldiers += list2.Find(p => p.id == list1[j].id).sentSoldiers - list1[j].sentSoldiers;
             }
             list1 = pData[minSegment].OrderBy(p => p.sentWorkers).ToList();
-            for (int j = 0; j < 5; j++)
+            list2 = pData[Mathf.Min(maxLength, minSegment + blockLength)].OrderBy(p => p.sentWorkers).ToList();
+            for (int j = 0; j < workerBracketBasis; j++)
             {
                 avgTop5Workers += list2.Find(p => p.id == list1[j].id).sentWorkers - list1[j].sentWorkers;
             }
-            avgTop5Soldiers /= 5;
-            avgTop5Workers /= 5;
+            avgTop5Soldiers /= soldierBracketBasis;
+            avgTop5Workers /= workerBracketBasis;
 
             //Now lets count how many soldiers and workers are above the considerPercentage of the top5 in this block.
             int soldiersAbove = 0;
@@ -177,8 +188,13 @@ try
                 //double soldierScore = (0.66 * (sentSoldiers / soldierAverage) + 0.33 * Math.Sqrt(sentSoldiers / soldierAverage)) * 100d * multiplier;
                 //double workerScore = (0.66 * (sentWorkers / workerAverage) + 0.33 * Math.Sqrt(sentWorkers / workerAverage)) * 100d * multiplier;
 
-                double soldierScore = (sentSoldiers / soldierAverage) * 100d;
+                double soldierScore = (sentSoldiers / soldierAverage) * 100d ;
                 double workerScore = (sentWorkers / workerAverage) * 100d;
+                if (i < 0)
+                {
+                    soldierScore *= 1-(double)(Mathf.Abs(i/splitTime) / featherBlocks);
+                    workerScore *= 1-(double)(Mathf.Abs(i/splitTime) / featherBlocks);
+                }
                 if (sentSoldiers < avgTop5Soldiers * considerPercentage)
                 {
                     soldierScore = 0;
@@ -192,21 +208,25 @@ try
             }
         }
 
+
+
         string output = "";
         Dictionary<int, string> playerStrings = new Dictionary<int, string>();
         Dictionary<int, double> playerTotalScore = new Dictionary<int, double>();
-        //now lets iterate through every player in every playerBlock and print out their name, Then their scores with comma separation. Their score is their Soldier + Worker score added together. Example: Bob,1,2,1,5
+        //now lets iterate through every player in every playerBlock and print out their name, Then their scores with dash separation. Their score is their Soldier + Worker score added together. Example: Bob,1,2,1,5
         foreach (KeyValuePair<int, List<PlayerScore>> kvp in playerBlocks)
         {
             foreach (PlayerScore player in kvp.Value)
             {
                 if (!playerStrings.ContainsKey(player.id))
                 {
-                    playerStrings.Add(player.id, GetPlayerGUID(player.id) + "-<score>");
+                    //playerStrings.Add(player.id, GetPlayerGUID(player.id) + "-<score>");
+                    playerStrings.Add(player.id, player.name + "-<score>");
                     playerTotalScore.Add(player.id, 0);
                 }
-                playerStrings[player.id] += $"-{(player.soldierScore + player.workerScore).ToString("N0")}";
-                playerTotalScore[player.id] += (player.soldierScore + player.workerScore);
+                double score = (player.soldierScore + player.workerScore);
+                playerStrings[player.id] += $"-{(score).ToString("N0")}";
+                playerTotalScore[player.id] += (score);
             }
         }
         //now lets debug print the scores for every player.
@@ -559,9 +579,9 @@ try
         }
     }
 
-    public async void GetPlayerData(int urlMinute)
+    public async void GetPlayerData(int urlMinute, int gameID)
     {
-        string url = "https://www.mclama.com/Factions/GameData/22/" + urlMinute +".txt";
+        string url = "https://www.mclama.com/Factions/GameData/" + gameID + "/" + urlMinute +".txt";
         using (UnityWebRequest request = UnityWebRequest.Get(url))
         {
             UnityWebRequestAsyncOperation operation = request.SendWebRequest();
@@ -593,7 +613,7 @@ try
                     Player newPlayer = new Player(playerID, playerName)
                     {
                         id = playerID,
-                        sentSoldiers = sentSoldiers,
+                        sentSoldiers = sentSoldiers ,
                         sentWorkers = sentWorkers,
                         hqLevel = hqLevel,
                         faction = faction
@@ -603,6 +623,7 @@ try
                 }
 
                 pData.Add(urlMinute, playerData);
+                Debug.Log($"minute {urlMinute} data received.");
 
                 // Count total soldiers, workers, and players with HQ level > 5
                 int totalSoldiers = 0;
