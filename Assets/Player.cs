@@ -12,6 +12,7 @@ public class Player
     public int hqLevel = 1;
     public int sentSoldiers = 0;
     public int sentWorkers = 0;
+    public int unitsSent = 0;
     public int tilesCaptured = 0;
     public DateTime lastActive = DateTime.MinValue;
     public bool awarded = false;

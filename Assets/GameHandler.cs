@@ -27,12 +27,12 @@ public class GameHandler
     public int height = 50;
     public bool waitingToStart = false;
     private int victoryGoal;
-    private float hqIronMulti;
-    private float hqWoodMulti;
-    private float hqWorkerMulti;
-    private float buildingIronMulti;
-    private float buildingWoodMulti;
-    private float buildingWorkerMulti;
+    private float hqIronCostMultiplier=1.5f;
+    private float hqWoodCostMultiplier = 1.5f;
+    private float hqWorkerCostMultiplier = 1.5f;
+    private float buildingIronCostMultiplier = 1.5f;
+    private float buildingWoodCostMultiplier = 1.5f;
+    private float buildingWorkerCostMultiplier = 1.5f;
     public int gameMinute = 0;
     public int nextEloBlock = 480;
     public int eloBlockInterval = 480;
@@ -64,6 +64,8 @@ public class GameHandler
     public List<int> gameSoldierBlocks = new List<int>();
     public List<int> gameWorkerBlocks = new List<int>();
 
+    private string winner = "NONE";
+
     public GameHandler(int gameID)
     {
         this.gameID = gameID;
@@ -88,12 +90,12 @@ public class GameHandler
         this.height = mapHeight;
         this.waitingToStart = waitingToStart;
         this.victoryGoal = victoryGoal;
-        this.hqIronMulti = hqIronMulti;
-        this.hqWoodMulti = hqWoodMulti;
-        this.hqWorkerMulti = hqWorkerMulti;
-        this.buildingIronMulti = buildingIronMulti;
-        this.buildingWoodMulti = buildingWoodMulti;
-        this.buildingWorkerMulti = buildingWorkerMulti;
+        this.hqIronCostMultiplier = hqIronMulti;
+        this.hqWoodCostMultiplier = hqWoodMulti;
+        this.hqWorkerCostMultiplier = hqWorkerMulti;
+        this.buildingIronCostMultiplier = buildingIronMulti;
+        this.buildingWoodCostMultiplier = buildingWoodMulti;
+        this.buildingWorkerCostMultiplier = buildingWorkerMulti;
         this.gameMinute = gameMinute;
         this.minuteSplit = minuteSplit;
         this.gameMode = gameMode;
@@ -649,6 +651,7 @@ public class GameHandler
         capturingMap = false;
     }
 
+
     public async void CaptureGet()
     {
         string fullUrl = GameAPIURL.Replace("game","games") + gameID + Manager.PathGet;
@@ -699,6 +702,26 @@ public class GameHandler
                     debugPrint += factionPointGain[i] + " ";
                 }
                 Debug.Log(debugPrint);
+
+                if (jsonData["status"].ToString() == "PLAYING")
+                {
+                    isGameActive = true;
+                    waitingToStart = false;
+                }
+                else
+                if (jsonData["status"].ToString() == "COMPLETED")
+                {
+                    if (isGameActive)
+                    {
+                        //Game is still running and we discovered the game is completed.
+                        //Run one last data recording of the leaderboards.
+                        RecordSegment();
+                        isGameActive = false;
+                        winner = jsonData["winner"].ToString();
+                        //We then need to send a message to our website so it updates the mysql and inform the game has ended.
+                        SendUpdateGameStatus();
+                    }
+                }
             }
             else
             {
@@ -1029,7 +1052,7 @@ public class GameHandler
 
     public async void CheckGameStart()
     {
-        if(!waitingToStart)
+        if (!waitingToStart)
         {
             return;
         }
@@ -1058,8 +1081,8 @@ public class GameHandler
                     waitingToStart = false;
                     gameMap = CapitalizeFirstLetter(jsonData["map"].ToString().ToLower());
                     NewHandler();
-                }  
-                
+                }
+
             }
             else
             {
@@ -1067,6 +1090,181 @@ public class GameHandler
             }
         }
     }
+
+    public async void CheckGameEnd()
+    {
+        if (waitingToStart)
+        {
+            return;
+        }
+        // https://api.factions-online.com/api/games/19/get
+        string fullUrl = GameAPIURL.Replace("game", "games") + gameID + Manager.PathGet;
+        using (UnityWebRequest request = UnityWebRequest.Get(fullUrl))
+        {
+            request.SetRequestHeader("Authorization", "Bearer " + Manager.factionsApiToken);
+
+            UnityWebRequestAsyncOperation operation = request.SendWebRequest();
+
+            while (!operation.isDone)
+            {
+                await Task.Yield();
+            }
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string json = request.downloadHandler.text;
+
+                JObject jsonData = JObject.Parse(json);
+
+                
+
+            }
+            else
+            {
+                Debug.LogError("Error: " + request.error + "\n" + fullUrl);
+            }
+        }
+    }
+
+    private async void SendUpdateGameStatus()
+    {
+        var contentData = new
+        {
+            gameID,
+            active = isGameActive,
+            winner
+        };
+
+        var jsonContent = JsonConvert.SerializeObject(contentData);
+        var requestBody = $"content={Uri.EscapeDataString(jsonContent)}";
+
+        StringContent content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");
+
+        using (HttpClient client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Add("API_KEY", Manager.apiToken);
+
+            HttpResponseMessage response = await client.PostAsync("https://mclama.com/Factions/UpdateGameStatus.php", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Debug.Log("Game status updated successfully.");
+            }
+            else
+            {
+                Debug.LogError("Failed to update game status: " + response.StatusCode);
+            }
+        }
+    }
+
+
+    public async void CaptureConfig()
+    {
+        string fullUrl = GameAPIURL + gameID + Manager.PathConfig;
+        using (UnityWebRequest request = UnityWebRequest.Get(fullUrl))
+        {
+            request.SetRequestHeader("Authorization", "Bearer " + Manager.factionsApiToken);
+
+            UnityWebRequestAsyncOperation operation = request.SendWebRequest();
+
+            while (!operation.isDone)
+            {
+                await Task.Yield();
+            }
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string json = request.downloadHandler.text;
+                JObject jsonData = JObject.Parse(json);
+
+                float newHqIronCostMultiplier = (float)jsonData["misc"]["parameters"]["hq_iron_cost_multiplier"] * 1.5f;
+                float newHqWoodCostMultiplier = (float)jsonData["misc"]["parameters"]["hq_wood_cost_multiplier"] * 1.5f;
+                float newHqWorkerCostMultiplier = (float)jsonData["misc"]["parameters"]["hq_worker_cost_multiplier"] * 1.5f;
+                float newBuildingIronCostMultiplier = (float)jsonData["misc"]["parameters"]["building_iron_cost_multiplier"] * 1.5f;
+                float newBuildingWoodCostMultiplier = (float)jsonData["misc"]["parameters"]["building_wood_cost_multiplier"] * 1.5f;
+                float newBuildingWorkerCostMultiplier = (float)jsonData["misc"]["parameters"]["building_worker_cost_multiplier"] * 1.5f;
+
+                bool shouldUpdate = false;
+
+                if (hqIronCostMultiplier != newHqIronCostMultiplier)
+                {
+                    hqIronCostMultiplier = newHqIronCostMultiplier;
+                    shouldUpdate = true;
+                }
+                if (hqWoodCostMultiplier != newHqWoodCostMultiplier)
+                {
+                    hqWoodCostMultiplier = newHqWoodCostMultiplier;
+                    shouldUpdate = true;
+                }
+                if (hqWorkerCostMultiplier != newHqWorkerCostMultiplier)
+                {
+                    hqWorkerCostMultiplier = newHqWorkerCostMultiplier;
+                    shouldUpdate = true;
+                }
+                if (buildingIronCostMultiplier != newBuildingIronCostMultiplier)
+                {
+                    buildingIronCostMultiplier = newBuildingIronCostMultiplier;
+                    shouldUpdate = true;
+                }
+                if (buildingWoodCostMultiplier != newBuildingWoodCostMultiplier)
+                {
+                    buildingWoodCostMultiplier = newBuildingWoodCostMultiplier;
+                    shouldUpdate = true;
+                }
+                if (buildingWorkerCostMultiplier != newBuildingWorkerCostMultiplier)
+                {
+                    buildingWorkerCostMultiplier = newBuildingWorkerCostMultiplier;
+                    shouldUpdate = true;
+                }
+
+                if (shouldUpdate)
+                {
+                    UpdateSiteMultipliers(gameID); // Ensure gameID is available in the context
+                    Debug.Log("Multipliers updated successfully.");
+                }
+            }
+            else
+            {
+                Debug.LogError("Error: " + request.error + "\n" + fullUrl);
+            }
+        }
+    }
+
+    private async void UpdateSiteMultipliers(int gameID)
+    {
+        var contentData = new
+        {
+            hqIronCostMultiplier,
+            hqWoodCostMultiplier,
+            hqWorkerCostMultiplier,
+            buildingIronCostMultiplier,
+            buildingWoodCostMultiplier,
+            buildingWorkerCostMultiplier,
+            gameID
+        };
+
+        var jsonContent = JsonConvert.SerializeObject(contentData);
+        var requestBody = $"content={Uri.EscapeDataString(jsonContent)}";
+
+        StringContent content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");
+
+        using (HttpClient client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Add("API_KEY", Manager.apiToken);
+
+            HttpResponseMessage response = await client.PostAsync("https://mclama.com/Factions/UpdateGameMultipliers.php", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Debug.Log("Data sent successfully.");
+            }
+            else
+            {
+                Debug.LogError("Failed to send data: " + response.StatusCode);
+            }
+        }
+    }
+
     public string CapitalizeFirstLetter(string input)
     {
         if (string.IsNullOrEmpty(input))

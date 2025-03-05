@@ -17,12 +17,14 @@ public class Manager : MonoBehaviour
 {
     public static readonly string APIURL = "https://api.factions-online.com/api/game/";
     public static readonly string TESTAPIURL = "https://api.factions-online.com/api/game/";
+
     public static string factionsApiToken;
     public static string apiToken;
 
     public static readonly string PathLeaderboard = "/leaderboard";
     public static readonly string PathWorldMap = "/world/invasions_info";
     public static readonly string PathGet = "/get";
+    public static readonly string PathConfig = "/hq/config";
 
     public static Manager instance;
 
@@ -44,6 +46,24 @@ public class Manager : MonoBehaviour
     public Dictionary<int, int> playerGUID = new Dictionary<int, int>();
     public bool loadedPlayerGuids = false;
 
+    public List<int> activePlayers12 = new List<int>();
+    public List<int> activePlayers8 = new List<int>();
+    public List<int> activePlayers4 = new List<int>();
+    public List<int> activePlayers1 = new List<int>();
+    public Dictionary<PlayerFaction, List<int>> factionPlayers = new Dictionary<PlayerFaction, List<int>>() {
+                    { PlayerFaction.None, new List<int>() },
+                    { PlayerFaction.Neutral, new List<int>() },
+                    { PlayerFaction.Red, new List<int>() },
+                    { PlayerFaction.Green, new List<int>() },
+                    { PlayerFaction.Blue, new List<int>() },
+                    { PlayerFaction.Yellow, new List<int>() }
+                };
+    private float hqIronCostMultiplier;
+    private float hqWoodCostMultiplier;
+    private float hqWorkerCostMultiplier;
+    private float buildingIronCostMultiplier;
+    private float buildingWoodCostMultiplier;
+    private float buildingWorkerCostMultiplier;
     // Start is called before the first frame update
     void Start()
     {
@@ -63,8 +83,18 @@ public class Manager : MonoBehaviour
 
         //TestApi();
 
-        LoadPlayerGuids();
-        DetermineScores(23, 1638, 48*2, 432*2, 2, 1);
+        //LoadPlayerGuids();
+        //DetermineUnitScores(23, 1638, 48*2, 432*2, 2, 1);
+
+        //for (int i = 12; i <= 1632; i += 12)
+        //{
+        //    GetActivePlayers(i, 23);
+        //}
+
+        //for (int i = 120; i <= 4680; i += 120)
+        //{
+        //    GetActivePlayers(i, 22);
+        //}
 
 
         //To force a game, Use the line below.
@@ -238,6 +268,127 @@ try
         Debug.Log(output);
     }
 
+    private async void DetermineUnitScores(int gameID, int maxLength, int splitTime, int blockLength, float soldierMulti, float workerMulti)
+    {
+        while (loadedPlayerGuids == false)
+        {
+            await Task.Yield();
+        }
+
+        for (int i = splitTime; i <= maxLength; i += splitTime)
+        {
+            GetPlayerData(i, gameID);
+        }
+        if (!pData.ContainsKey(maxLength))
+        {
+            GetPlayerData(maxLength, gameID);
+        }
+        while (dataPullCount < maxLength / splitTime)
+        {
+            await Task.Yield();
+        }
+
+        double featherBlocks = blockLength / splitTime;
+        float considerPercentage = 0.01f; //if your score is less than this percent of the average, you will not be considered.
+        Dictionary<int, List<PlayerScore>> playerBlocks = new Dictionary<int, List<PlayerScore>>();
+        int fullSplits = Mathf.FloorToInt(maxLength / splitTime) + Mathf.FloorToInt(blockLength/splitTime);
+        for (int i = splitTime - blockLength; i <= (fullSplits-featherBlocks) * splitTime; i += splitTime)
+        {
+            int minSegment = Mathf.Max(splitTime, i);
+            int block = Mathf.CeilToInt(i / blockLength);
+            double avgTop5Units = 0; //This is the average soldiers sent of the top 5 players.
+            List<Player> list1 = pData[minSegment].OrderBy(p => p.unitsSent).ToList();
+            int maxSegment = Mathf.Min(maxLength, minSegment + blockLength);
+            if (i == fullSplits * splitTime) maxSegment = maxLength;
+            List<Player> list2 = pData[maxSegment].OrderBy(p => p.unitsSent).ToList();
+            int unitBracketBasis = 5;
+
+            for (int j = 0; j < unitBracketBasis; j++)
+            {
+                avgTop5Units += list2.Find(p => p.id == list1[j].id).unitsSent - list1[j].unitsSent;
+            }
+
+            avgTop5Units /= unitBracketBasis;
+
+            //Now lets count how many soldiers and workers are above the considerPercentage of the top5 in this block.
+            int unitsAbove = 0;
+            double totalUnits = 0;
+            foreach (Player player in pData[minSegment])
+            {
+                int sentUnits = 0;
+                try
+                {
+                    sentUnits = pData[maxSegment].Find(p => p.id == player.id).unitsSent - player.unitsSent;
+                }
+                catch (Exception)
+                {
+                }
+                if (sentUnits > avgTop5Units * considerPercentage)
+                {
+                    unitsAbove++;
+                    totalUnits += sentUnits;
+                }
+            }
+            double unitAverage = totalUnits / unitsAbove;
+
+            playerBlocks.Add(i, new List<PlayerScore>());
+            foreach (Player player in pData[minSegment])
+            {
+                if (i == maxLength) continue;
+                int sentUnits = 0;
+
+                try
+                {
+                    sentUnits = pData[maxSegment].Find(p => p.id == player.id).unitsSent - player.unitsSent;
+                }
+                catch (Exception)
+                {
+                }
+
+                double unitScore = (sentUnits / unitAverage) * 100d;
+                if (i < 0)
+                {
+                    unitScore *= 1 - (double)(Mathf.Abs(i / splitTime) / featherBlocks);
+                }
+                if (sentUnits < avgTop5Units * considerPercentage)
+                {
+                    unitScore = 0;
+                }
+
+                playerBlocks[i].Add(new PlayerScore(player.id, player.name, sentUnits, (float)unitScore));
+            }
+        }
+
+
+
+        string output = "";
+        Dictionary<int, string> playerStrings = new Dictionary<int, string>();
+        Dictionary<int, double> playerTotalScore = new Dictionary<int, double>();
+        //now lets iterate through every player in every playerBlock and print out their name, Then their scores with dash separation. Their score is their Soldier + Worker score added together. Example: Bob,1,2,1,5
+        foreach (KeyValuePair<int, List<PlayerScore>> kvp in playerBlocks)
+        {
+            foreach (PlayerScore player in kvp.Value)
+            {
+                if (!playerStrings.ContainsKey(player.id))
+                {
+                    //playerStrings.Add(player.id, GetPlayerGUID(player.id) + "-<score>");
+                    playerStrings.Add(player.id, player.name + "-<score>");
+                    playerTotalScore.Add(player.id, 0);
+                }
+                double score = player.unitScore;
+                playerStrings[player.id] += $"-{(score).ToString("N0")}";
+                playerTotalScore[player.id] += (score);
+            }
+        }
+        //now lets debug print the scores for every player.
+        foreach (KeyValuePair<int, string> kvp in playerStrings)
+        {
+            if (playerTotalScore[kvp.Key] > 0)
+                output += $"{(kvp.Value).Replace("<score>", playerTotalScore[kvp.Key].ToString("N0"))}\n";
+        }
+        Debug.Log(output);
+    }
+
 
     private void LoadApiTokens()
     {
@@ -311,6 +462,8 @@ try
                         gameHandler.GetConnected();
                         gameHandler.CaptureGet();
                         gameHandler.CaptureLeaderboard();
+                        gameHandler.CheckGameEnd();
+                        gameHandler.CaptureConfig();
                         gameHandler.requestMapData = true;
                     }
                 }
@@ -579,9 +732,135 @@ try
         }
     }
 
-    public async void GetPlayerData(int urlMinute, int gameID)
+    public async void GetActivePlayers(int urlMinute, int gameID)
     {
-        string url = "https://www.mclama.com/Factions/GameData/" + gameID + "/" + urlMinute +".txt";
+        string url = "https://www.mclama.com/Factions/GameData/" + gameID + "/" + urlMinute + ".txt";
+        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        {
+            UnityWebRequestAsyncOperation operation = request.SendWebRequest();
+
+            while (!operation.isDone)
+            {
+                await Task.Yield();
+            }
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                string json = request.downloadHandler.text;
+
+                // Parse the JSON array
+                JArray jsonData = JArray.Parse(json);
+
+                int active12 = 0, active8=0, active4=0, active1=0;
+                Dictionary<PlayerFaction, int> factionCount = new Dictionary<PlayerFaction, int>() {
+                    { PlayerFaction.None, 0 },
+                    { PlayerFaction.Neutral, 0 },
+                    { PlayerFaction.Red, 0 },
+                    { PlayerFaction.Green, 0 },
+                    { PlayerFaction.Blue, 0 },
+                    { PlayerFaction.Yellow, 0 }
+                };
+
+                DateTime gameStartTime = DateTime.Parse("2025-02-21T15:11:26.888144Z");
+                DateTime currentTime = gameStartTime.AddMinutes(urlMinute);
+
+
+                // Get player data and update our local list
+                foreach (var newPlayerData in jsonData)
+                {
+                    DateTime lastActive = DateTime.Parse(newPlayerData["lastActive"].ToString());
+                    PlayerFaction faction = GetFaction(newPlayerData["faction"].ToString());
+
+
+                    if ((currentTime - lastActive).TotalHours <= 12)
+                    {
+                        active12++; 
+                        if ((currentTime - lastActive).TotalHours <= 8)
+                        {
+                            active8++;
+                            if ((currentTime - lastActive).TotalHours <= 4)
+                            {
+                                active4++;
+                                factionCount[faction]++;
+                                if ((currentTime - lastActive).TotalHours <= 1)
+                                {
+                                    active1++;
+
+                                }
+                            }
+                        }
+                    }
+                }
+                // Log active players and faction counts
+                Debug.Log($"Minute {urlMinute} - Active 12: {active12}, Active 8: {active8}, Active 4: {active4}, Active 1: {active1}\n" +
+                          $"Factions - None: {factionCount[PlayerFaction.None]}, Neutral: {factionCount[PlayerFaction.Neutral]}, " +
+                          $"Red: {factionCount[PlayerFaction.Red]}, Green: {factionCount[PlayerFaction.Green]}, " +
+                          $"Blue: {factionCount[PlayerFaction.Blue]}, Yellow: {factionCount[PlayerFaction.Yellow]}");
+
+
+                activePlayers12.Add(active12);
+                activePlayers8.Add(active8);
+                activePlayers4.Add(active4);
+                activePlayers1.Add(active1);
+
+
+                foreach (var faction in factionCount.Keys)
+                {
+                    if (!factionPlayers.ContainsKey(faction))
+                    {
+                        factionPlayers[faction] = new List<int>();
+                    }
+                    factionPlayers[faction].Add(factionCount[faction]);
+                }
+
+                if (urlMinute == 1632)
+                {
+                    await Task.Delay(1000);
+                    string out12 = "", out8 = "", out4 = "", out1 = "";
+                    Dictionary<PlayerFaction, string> factionPrint = new Dictionary<PlayerFaction, string>() {
+                        { PlayerFaction.None, "None:," },
+                        { PlayerFaction.Neutral, "Neutral:," },
+                        { PlayerFaction.Red, "Red:," },
+                        { PlayerFaction.Green, "Green:," },
+                        { PlayerFaction.Blue, "Blue:," },
+                        { PlayerFaction.Yellow, "Yellow:," }
+                    };
+                    foreach (var faction in factionPlayers.Keys)
+                    {
+                        for(int i=0; i<factionPlayers[faction].Count; i++)
+                        {
+                            factionPrint[faction] += factionPlayers[faction][i] + ",";
+                        }
+                    }
+
+                    for (int i = 0; i < activePlayers12.Count; i++)
+                    {
+                        out12 += activePlayers12[i] + ",";
+                        out8 += activePlayers8[i] + ",";
+                        out4 += activePlayers4[i] + ",";
+                        out1 += activePlayers1[i] + ",";
+                    }
+                    Debug.Log(out12);
+                    Debug.Log(out8);
+                    Debug.Log(out4);
+                    Debug.Log(out1);
+
+                    foreach (var faction in factionPrint.Keys)
+                    {
+                        Debug.Log(factionPrint[faction]);
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogError("Error: " + request.error);
+            }
+        }
+    }
+
+    private async void GetPlayerData(int urlMinute, int gameID)
+    {
+        string url = "https://www.mclama.com/Factions/GameData/" + gameID + "/" + urlMinute + ".txt";
         using (UnityWebRequest request = UnityWebRequest.Get(url))
         {
             UnityWebRequestAsyncOperation operation = request.SendWebRequest();
@@ -613,10 +892,12 @@ try
                     Player newPlayer = new Player(playerID, playerName)
                     {
                         id = playerID,
-                        sentSoldiers = sentSoldiers ,
+                        sentSoldiers = sentSoldiers,
                         sentWorkers = sentWorkers,
+                        unitsSent = (sentSoldiers * 2) + sentWorkers,
                         hqLevel = hqLevel,
                         faction = faction
+
                     };
 
                     playerData.Add(newPlayer);
@@ -672,25 +953,8 @@ try
                 Debug.LogError("Error: " + request.error);
             }
         }
-
-        PlayerFaction GetFaction(string text)
-        {
-            switch (text)
-            {
-                case "GREEN":
-                    return PlayerFaction.Green;
-                case "RED":
-                    return PlayerFaction.Red;
-                case "NEUTRAL":
-                    return PlayerFaction.Neutral;
-                case "BLUE":
-                    return PlayerFaction.Blue;
-                case "YELLOW":
-                    return PlayerFaction.Yellow;
-            }
-            return PlayerFaction.None;
-        }
     }
+
     private void LoadPlayerGuids()
     {
         string filePath = Path.Combine(Application.persistentDataPath, "playerGUIDs.json");
@@ -750,6 +1014,24 @@ try
         playerGUID.Add(id, guid);
         SavePlayerGuids();
         return guid;
+    }
+
+    private PlayerFaction GetFaction(string text)
+    {
+        switch (text.ToUpper())
+        {
+            case "GREEN":
+                return PlayerFaction.Green;
+            case "RED":
+                return PlayerFaction.Red;
+            case "NEUTRAL":
+                return PlayerFaction.Neutral;
+            case "BLUE":
+                return PlayerFaction.Blue;
+            case "YELLOW":
+                return PlayerFaction.Yellow;
+        }
+        return PlayerFaction.None;
     }
 
 

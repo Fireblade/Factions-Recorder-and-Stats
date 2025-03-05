@@ -175,8 +175,10 @@ $mapHistoryJson = json_encode($mapHistory);
                 display: flex;
                 flex-direction: row;
                 height: 100%;
+                flex-wrap: none;
             }
-            #viewer {
+            #viewer
+            {
                 width: 67%;
                 height: 100%;
                 display: flex;
@@ -263,8 +265,11 @@ $mapHistoryJson = json_encode($mapHistory);
                 justify-content: space-around;
                 margin-bottom: 6px;
             }
-            #overview, #buildings {
+            #overview, #buildings 
+            {
                 display: none;
+		  	    flex-direction: column;
+				width: 100%;
             }
             #overview.active, #buildings.active {
                 display: block;
@@ -300,153 +305,7 @@ $mapHistoryJson = json_encode($mapHistory);
             }
             .worker-column {
                 background-color: #ffffe0; /* Light yellow for worker columns */
-            }            body {
-                font-family: Arial, sans-serif;
-                margin: 0;
-                padding: 0;
-                height: 100vh;
-                display: flex;
-                flex-direction: column;
-            }
-            #topBanner {
-                background-color: #333;
-                color: white;
-                padding: 10px;
-                text-align: center;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-            #container {
-                display: flex;
-                flex-direction: row;
-                height: 100%;
-            }
-            #viewer {
-                width: 67%;
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: flex-start;
-            }
-            #map {
-                width: fit-content;
-                aspect-ratio: 1;
-                height: 80%;
-                border: 1px solid #ccc;
-                position: relative;
-            }
-            .tile {
-                position: absolute;
-                box-sizing: border-box;
-                border: 1px solid rgba(0, 0, 0, 0.5);
-            }
-            .tile.transparent {
-                border: none;
-            }
-            #gameNumberContainer {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            #gameNumber {
-                font-size: 1.2em;
-            }
-            #status {
-                font-size: 1.2em;
-                margin-left: 10px;
-            }
-            #slider {
-                margin-top: 10px;
-                width: 100%;
-            }
-            #gameExtraInfo {
-                display: flex;
-                align-items: center;
-                width: 80%;
-                justify-content: space-between;
-            }
-            #gameExtraInfoLine2 {
-                display: flex;
-                align-items: center;
-                width: 80%;
-                justify-content: space-between;
-            }
-            #dateDisplay {
-                margin-top: 10px;
-                align-self: flex-start;
-            }
-            #gridToggle {
-                margin-top: 10px;
-                align-self: flex-end;
-            }
-            #instructions {
-                margin-top: 10px;
-                font-size: 0.9em;
-                color: #555;
-                align-self: flex-start;
-            }
-            #autoplay {
-                margin-top: 10px;
-                font-size: 0.9em;
-                color: #555;
-                align-self: flex-end;
-            }
-            #autoplay label, #autoplay select {
-                display: inline-block;
-            }
-            #infoPanel {
-                width: 40%;
-                min-width: 33%;
-                padding: 10px;
-                display: flex;
-                flex-direction: column;
-                overflow-y: auto;
-            }
-            #buttons {
-                display: flex;
-                justify-content: space-around;
-                margin-bottom: 6px;
-            }
-            #overview, #buildings {
-                display: none;
-            }
-            #overview.active, #buildings.active {
-                display: block;
-            }
-            .team-table {
-                width: 100%;
-                margin-bottom: 6px;
-                font-size: 0.9em;
-            }
-            .team-table th, .team-table td {
-                padding: 2px;
-                text-align: left;
-            }
-            .status {
-                font-weight: bold;
-                color: green;
-            }
-            .sticky-column {
-                position: -webkit-sticky; /* For Safari */
-                position: sticky;
-                left: 0;
-                background-color: white; /* Optional: to ensure the background is consistent */
-                z-index: 1; /* Ensure it stays on top of other content */
-            }
-            .odd-row {
-                background-color: #f2f2f2; /* Slightly darker background for odd rows */
-            }
-            .wood-column {
-                background-color: #f5deb3; /* Light brown for wood columns */
-            }
-            .iron-column {
-                background-color: #add8e6; /* Light blue for iron columns */
-            }
-            .worker-column {
-                background-color: #ffffe0; /* Light yellow for worker columns */
-            }
+            } 
     </style>
 </head>
 <body>
@@ -1022,7 +881,29 @@ $mapHistoryJson = json_encode($mapHistory);
         history.replaceState(null, '', url.toString());
     }
 
+    function isMobile() 
+	{ 
+		return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+	}
 
+	document.addEventListener("DOMContentLoaded", function ()
+	{ 
+		if (isMobile()) 
+		{ 
+			let container = document.querySelector("#container"); 
+			if (container) 
+			{ 
+				container.style.flexWrap = "wrap"; 
+			} 
+			
+			let cssInfoPanel = document.querySelector("#infoPanel"); 
+			if (cssInfoPanel) 
+			{ 
+				cssInfoPanel.style.width = "100%";
+			} 
+		} 
+	});
+	
 
     slider.addEventListener('input', () => updateMap(slider.value));
     updateMap(slider.value);
