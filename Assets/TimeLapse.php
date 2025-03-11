@@ -32,9 +32,6 @@ $firstLoad = true;
 
 $filename = $dir . "/{$selectedGamePrefix}_{$selectedGameNumber}_MapHistory.txt";
 
-// Log the received data to the console
-echo "<script>console.log(" . json_encode($mapDataLines) . ");</script>";
-
 // Create connection
 $conn = new mysqli($servername, $username, $password, $dbname);
 
@@ -161,6 +158,8 @@ $mapHistoryJson = json_encode($mapHistory);
                 height: 100vh;
                 display: flex;
                 flex-direction: column;
+                background-color: #1a1a1a; /* Dark background */
+                color: #C0C0C0; /* White text */
             }
             #topBanner {
                 background-color: #333;
@@ -177,14 +176,14 @@ $mapHistoryJson = json_encode($mapHistory);
                 height: 100%;
                 flex-wrap: none;
             }
-            #viewer
-            {
+            #viewer {
                 width: 67%;
                 height: 100%;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: flex-start;
+                background-color: #1a1a1a; /* Dark background */
             }
             #map {
                 width: fit-content;
@@ -196,7 +195,7 @@ $mapHistoryJson = json_encode($mapHistory);
             .tile {
                 position: absolute;
                 box-sizing: border-box;
-                border: 1px solid rgba(0, 0, 0, 0.5);
+                border: 1px solid rgba(255, 255, 255, 0.5); /* White border */
             }
             .tile.transparent {
                 border: none;
@@ -208,6 +207,9 @@ $mapHistoryJson = json_encode($mapHistory);
             }
             #gameNumber {
                 font-size: 1.2em;
+                background-color: #333; /* Dark background */
+                color: white; /* White text */
+                border: 1px solid white; /* White border */
             }
             #status {
                 font-size: 1.2em;
@@ -240,13 +242,13 @@ $mapHistoryJson = json_encode($mapHistory);
             #instructions {
                 margin-top: 10px;
                 font-size: 0.9em;
-                color: #555;
+                color: #ccc; /* Light gray text */
                 align-self: flex-start;
             }
             #autoplay {
                 margin-top: 10px;
                 font-size: 0.9em;
-                color: #555;
+                color: #ccc; /* Light gray text */
                 align-self: flex-end;
             }
             #autoplay label, #autoplay select {
@@ -259,17 +261,18 @@ $mapHistoryJson = json_encode($mapHistory);
                 display: flex;
                 flex-direction: column;
                 overflow-y: auto;
+                background-color: #1a1a1a; /* Dark background */
+                color: #FFFFFF4D; /* White text */
             }
             #buttons {
                 display: flex;
                 justify-content: space-around;
                 margin-bottom: 6px;
             }
-            #overview, #buildings 
-            {
+            #overview, #buildings {
                 display: none;
-		  	    flex-direction: column;
-				width: 100%;
+                flex-direction: column;
+                width: 100%;
             }
             #overview.active, #buildings.active {
                 display: block;
@@ -278,10 +281,12 @@ $mapHistoryJson = json_encode($mapHistory);
                 width: 100%;
                 margin-bottom: 6px;
                 font-size: 0.9em;
+                border: 1px solid #FFFFFF4D; /* White border */
             }
             .team-table th, .team-table td {
                 padding: 2px;
                 text-align: left;
+                border: 1px solid #FFFFFF4D; /* White border */
             }
             .status {
                 font-weight: bold;
@@ -291,21 +296,21 @@ $mapHistoryJson = json_encode($mapHistory);
                 position: -webkit-sticky; /* For Safari */
                 position: sticky;
                 left: 0;
-                background-color: white; /* Optional: to ensure the background is consistent */
+                background-color: #1a1a1a; /* Dark background */
                 z-index: 1; /* Ensure it stays on top of other content */
             }
             .odd-row {
-                background-color: #f2f2f2; /* Slightly darker background for odd rows */
+                background-color: #333; /* Slightly darker background for odd rows */
             }
             .wood-column {
-                background-color: #f5deb3; /* Light brown for wood columns */
+                background-color: #5a2e0d; /* Darker brown for wood columns */
             }
             .iron-column {
-                background-color: #add8e6; /* Light blue for iron columns */
+                background-color: #2c4a6b; /* Darker blue for iron columns */
             }
             .worker-column {
-                background-color: #ffffe0; /* Light yellow for worker columns */
-            } 
+                background-color: #8B8000; /* Dark yellow for worker columns */
+            }
     </style>
 </head>
 <body>
@@ -348,7 +353,6 @@ $mapHistoryJson = json_encode($mapHistory);
                 <option value="10">10x</option>
                 <option value="25">25x</option>
                 <option value="50">50x</option>
-                <option value="100">100x</option>
             </select>
             </div>
         </div>
@@ -367,7 +371,24 @@ $mapHistoryJson = json_encode($mapHistory);
                     <table class="team-table" style="border: 1px solid black;">
                         <thead>
                             <?php foreach ($teams as $team): ?>
-                                <tr style="background-color: <?php echo ($team === 'BLUE' || $team === 'GREEN') ? 'light' . strtolower($team) : strtolower($team); ?>; border: 1px solid black;">
+                                <tr style="background-color: <?php 
+                                    switch ($team) {
+                                        case 'BLUE':
+                                            echo '#00008B'; // Dark Blue
+                                            break;
+                                        case 'GREEN':
+                                            echo '#006400'; // Dark Green
+                                            break;
+                                        case 'YELLOW':
+                                            echo '#8B8000'; // Dark Yellow
+                                            break;
+                                        case 'RED':
+                                            echo '#8B0000'; // Dark Red
+                                            break;
+                                        default:
+                                            echo strtolower($team);
+                                    }
+                                ?>; border: 1px solid black;">
                                     <th id="teamNameAndConnected_<?php echo $team; ?>" style="text-align: center;"><?php echo $team . ' (' . $teamConnectedPlayers . ')'; ?></th>
                                     <th id="teamPoints_<?php echo $team; ?>" style="text-align: center;"> (+<span id="teamPointsGain_<?php echo $team; ?>"></span>)</th>
                                 </tr>

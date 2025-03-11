@@ -7,14 +7,18 @@ header("Expires: 0");
 $dir = 'TimeLapse';
 $selectedGamePrefix = isset($_GET['gamePrefix']) ? $_GET['gamePrefix'] : die("Game prefix not specified.");
 $selectedGameNumber = isset($_GET['gameNumber']) ? $_GET['gameNumber'] : die("Game number not specified.");
+if ($selectedGameNumber < 18) {
+    die(json_encode(['error' => 'Feature not available for games earlier than 18.']));
+}
 
 $latestDataFile = $dir . "/{$selectedGamePrefix}_{$selectedGameNumber}_Latest.txt";
-header("ETag: \"" . md5(uniqid(rand(), true)) . "\"");
-header("Last-Modified: " . gmdate("D, d M Y H:i:s", filemtime($latestDataFile)) . " GMT");
-
 if (!file_exists($latestDataFile)) {
     die(json_encode(['error' => 'Latest data file not found.']));
 }
+header("ETag: \"" . md5(uniqid(rand(), true)) . "\"");
+header("Last-Modified: " . gmdate("D, d M Y H:i:s", filemtime($latestDataFile)) . " GMT");
+
+
 
 $latestLine = file_get_contents($latestDataFile);
 list($date, $mapData, $teamPoints, $teamPointsGain, $teamSentSoldiers, $teamSoldierGainMinute, $teamSoldierGainHour, $teamSentWorkers, $teamWorkersGainMinute, $teamWorkersGainHour, $teamAverageHQ, $teamHQOver10, $teamHQOver15, $teamConnectedPlayers) = explode('_', $latestLine);

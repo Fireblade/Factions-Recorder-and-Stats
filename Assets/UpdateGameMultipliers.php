@@ -6,11 +6,11 @@ header("Pragma: no-cache");
 // Load configuration
 $config = require 'config.php';
 
+$servername = $config['servername'];
+$username = $config['username'];
+$password = $config['password'];
+$dbname = $config['dbname'];
 $storedApiKey = $config['api_key'];
-$servername = $config['db_host'];
-$username = $config['db_user'];
-$password = $config['db_pass'];
-$dbname = $config['db_name'];
 
 // Check if the API key is provided and valid
 if (!isset($_SERVER['HTTP_API_KEY']) || $_SERVER['HTTP_API_KEY'] !== $storedApiKey) {

@@ -178,11 +178,11 @@ public class GameHandler
                 requestMapData = false;
                 CaptureMap();
                 mapDataDelayTick = 5;
-                if(gameMode == GameMode.Standard)
-                    if (gameMinute == nextEloBlock)
-                    {
-                        CalculateEloBlock();
-                    }
+                //if(gameMode == GameMode.Standard)
+                //    if (gameMinute == nextEloBlock)
+                //    {
+                //        CalculateEloBlock(); //Disabled until this system works properly.
+                //    }
 
                 if (gameMinute % minuteSplit == 0)
                 {
@@ -1091,41 +1091,6 @@ public class GameHandler
         }
     }
 
-    public async void CheckGameEnd()
-    {
-        if (waitingToStart)
-        {
-            return;
-        }
-        // https://api.factions-online.com/api/games/19/get
-        string fullUrl = GameAPIURL.Replace("game", "games") + gameID + Manager.PathGet;
-        using (UnityWebRequest request = UnityWebRequest.Get(fullUrl))
-        {
-            request.SetRequestHeader("Authorization", "Bearer " + Manager.factionsApiToken);
-
-            UnityWebRequestAsyncOperation operation = request.SendWebRequest();
-
-            while (!operation.isDone)
-            {
-                await Task.Yield();
-            }
-
-            if (request.result == UnityWebRequest.Result.Success)
-            {
-                string json = request.downloadHandler.text;
-
-                JObject jsonData = JObject.Parse(json);
-
-                
-
-            }
-            else
-            {
-                Debug.LogError("Error: " + request.error + "\n" + fullUrl);
-            }
-        }
-    }
-
     private async void SendUpdateGameStatus()
     {
         var contentData = new
@@ -1144,15 +1109,22 @@ public class GameHandler
         {
             client.DefaultRequestHeaders.Add("API_KEY", Manager.apiToken);
 
-            HttpResponseMessage response = await client.PostAsync("https://mclama.com/Factions/UpdateGameStatus.php", content);
+            try
+            {
+                HttpResponseMessage response = await client.PostAsync("https://mclama.com/Factions/UpdateGameStatus.php", content);
 
-            if (response.IsSuccessStatusCode)
-            {
-                Debug.Log("Game status updated successfully.");
+                if (response.IsSuccessStatusCode)
+                {
+                    Debug.Log("Game status updated successfully.");
+                }
+                else
+                {
+                    Debug.LogError("Failed to update game status: " + response.StatusCode);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                Debug.LogError("Failed to update game status: " + response.StatusCode);
+                Debug.LogError("Exception occurred while updating game status: " + ex.Message);
             }
         }
     }
@@ -1244,23 +1216,28 @@ public class GameHandler
         };
 
         var jsonContent = JsonConvert.SerializeObject(contentData);
-        var requestBody = $"content={Uri.EscapeDataString(jsonContent)}";
-
-        StringContent content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");
+        var requestBody = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
         using (HttpClient client = new HttpClient())
         {
             client.DefaultRequestHeaders.Add("API_KEY", Manager.apiToken);
 
-            HttpResponseMessage response = await client.PostAsync("https://mclama.com/Factions/UpdateGameMultipliers.php", content);
+            try
+            {
+                HttpResponseMessage response = await client.PostAsync("https://mclama.com/Factions/UpdateGameMultipliers.php", requestBody);
 
-            if (response.IsSuccessStatusCode)
-            {
-                Debug.Log("Data sent successfully.");
+                if (response.IsSuccessStatusCode)
+                {
+                    Debug.Log("Data sent successfully.");
+                }
+                else
+                {
+                    Debug.LogError("Failed to send data: " + response.StatusCode);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                Debug.LogError("Failed to send data: " + response.StatusCode);
+                Debug.LogError("Exception occurred while sending data: " + ex.Message);
             }
         }
     }
