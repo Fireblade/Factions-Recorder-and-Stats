@@ -74,7 +74,7 @@ public class Manager : MonoBehaviour
         LoadApiTokens();
 
         //Open source description - Uncomment line to pull leaderboard data from a game
-        //PullLeaderboardFromGame(22);
+        //PullLeaderboardFromGame(24);
 
         // Other initialization code...
 
@@ -588,8 +588,6 @@ try
                         Debug.LogError("Error sending leaderboard data: " + response.StatusCode);
                     }
                 }
-
-
             }
             else
             {
@@ -599,20 +597,15 @@ try
 
         PlayerFaction GetFaction(string text)
         {
-            switch (text)
+            return text.ToUpper() switch
             {
-                case "GREEN":
-                    return PlayerFaction.Green;
-                case "RED":
-                    return PlayerFaction.Red;
-                case "NEUTRAL":
-                    return PlayerFaction.Neutral;
-                case "BLUE":
-                    return PlayerFaction.Blue;
-                case "YELLOW":
-                    return PlayerFaction.Yellow;
-            }
-            return PlayerFaction.None;
+                "GREEN" => PlayerFaction.Green,
+                "RED" => PlayerFaction.Red,
+                "NEUTRAL" => PlayerFaction.Neutral,
+                "BLUE" => PlayerFaction.Blue,
+                "YELLOW" => PlayerFaction.Yellow,
+                _ => PlayerFaction.None,
+            };
         }
     }
 

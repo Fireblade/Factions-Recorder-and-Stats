@@ -976,7 +976,7 @@ public class GameHandler
 
         PlayerFaction GetFaction(string text)
         {
-            return text switch
+            return text.ToUpper() switch
             {
                 "GREEN" => PlayerFaction.Green,
                 "RED" => PlayerFaction.Red,
@@ -1053,7 +1053,7 @@ public class GameHandler
 
             if (request.result == UnityWebRequest.Result.Success)
             {
-                Debug.Log("Data successfully sent to Google Form.");
+                //Debug.Log("Data successfully sent to Google Form."); //This is a send and forget method. No need to check for success.
             }
             else
             {

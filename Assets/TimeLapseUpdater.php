@@ -1,11 +1,12 @@
 <?php
 // Load configuration
 $config = require 'config.php';
-$storedApiKey = $config['api_key'];
+
 $servername = $config['servername'];
 $username = $config['username'];
 $password = $config['password'];
 $dbname = $config['dbname'];
+$storedApiKey = $config['api_key'];
 
 // Check if the API key is provided and valid
 if (!isset($_SERVER['HTTP_API_KEY']) || $_SERVER['HTTP_API_KEY'] !== $storedApiKey) {
@@ -78,15 +79,20 @@ if (isset($_POST['mapData']) && isset($_POST['gameID']) && isset($_POST['isTestG
 				exit;
 			}
             // Increment the GameMinute column by 1 for the specified game
-			$sql = "UPDATE ActiveGames SET GameMinute = GameMinute + 1 WHERE GameID = $gameID";
+			$sql = "UPDATE ActiveGames SET GameMinute = GameMinute + 1 WHERE GameID = ?";
 
-			if ($conn->query($sql) === TRUE) {
+            // Prepare and bind
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("i", $gameID);
+
+            if ($stmt->execute() === TRUE) {
 				echo "Game minute incremented successfully.";
 			} else {
-				echo "Error updating game minute: " . $conn->error;
+				echo "Error updating game minute: " . $stmt->error;
 			}
 
-			// Close the database connection
+			// Close the statement and the database connection
+			$stmt->close();
 			$conn->close();
 
         } else {
@@ -98,4 +104,5 @@ if (isset($_POST['mapData']) && isset($_POST['gameID']) && isset($_POST['isTestG
 } else {
     echo "Required parameters are missing.";
 }
+
 ?>
