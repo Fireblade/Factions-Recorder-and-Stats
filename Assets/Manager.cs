@@ -448,7 +448,7 @@ try
         if (minuteTick >= 60f)
         {
             minuteTick = 0f;
-            Debug.Log("60 seconds passed. Requesting data.");
+            //Debug.Log("60 seconds passed. Requesting data.");
             foreach (GameHandler gameHandler in gameHandlers)
             {
                 if(gameHandler.waitingToStart)
@@ -461,7 +461,7 @@ try
                     {
                         gameHandler.GetConnected();
                         gameHandler.CaptureGet();
-                        gameHandler.CaptureLeaderboard();
+                        gameHandler.CaptureLeaderboardAsync();
                         gameHandler.CaptureConfig();
                         gameHandler.requestMapData = true;
                     }

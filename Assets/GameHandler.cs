@@ -33,6 +33,7 @@ public class GameHandler
     private float buildingIronCostMultiplier = 1.5f;
     private float buildingWoodCostMultiplier = 1.5f;
     private float buildingWorkerCostMultiplier = 1.5f;
+    private bool needUpdateMultipliers = true;
     public int gameMinute = 0;
     public int nextEloBlock = 480;
     public int eloBlockInterval = 480;
@@ -163,7 +164,7 @@ public class GameHandler
                 }
             }
             CaptureGet();
-            CaptureLeaderboard();
+            CaptureLeaderboardAsync();
             requestMapData = true;
         }
     }
@@ -223,9 +224,9 @@ public class GameHandler
                 }
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            Debug.Log($"Game minute {gameMinute} failed to record segment");
+            Debug.Log($"Game minute {gameMinute} failed to record segment: {ex.Message}");
         }
     }
 
@@ -705,8 +706,12 @@ public class GameHandler
 
                 if (jsonData["status"].ToString() == "PLAYING")
                 {
-                    isGameActive = true;
-                    waitingToStart = false;
+                    if(waitingToStart)
+                    {
+                        gameStart = DateTime.UtcNow;
+                        isGameActive = true;
+                        waitingToStart = false;
+                    }
                 }
                 else
                 if (jsonData["status"].ToString() == "COMPLETED")
@@ -779,7 +784,7 @@ public class GameHandler
 
 
 
-    public async void CaptureLeaderboard()
+    public async Task CaptureLeaderboardAsync()
     {
         string fullUrl = GameAPIURL + gameID + Manager.PathLeaderboard;
         using (UnityWebRequest request = UnityWebRequest.Get(fullUrl))
@@ -795,160 +800,173 @@ public class GameHandler
 
             if (request.result == UnityWebRequest.Result.Success)
             {
-                string json = request.downloadHandler.text;
-
-                // Parse the JSON array
-                JArray jsonData = JArray.Parse(json);
-
-                //Get player data and update out local list
-                // Iterate through the player data
-                foreach (var newPlayerData in jsonData)
+                try
                 {
-                    string playerName = newPlayerData["name"].ToString();
-                    int playerID = newPlayerData["playerId"].Value<int>();
-                    int sentSoldiers = newPlayerData["sentSoldiers"].Value<int>();
-                    int sentWorkers = newPlayerData["sentWorkers"].Value<int>();
-                    int hqLevel = newPlayerData["hqLevel"].Value<int>();
-                    int casesCaptured = newPlayerData["casesCaptured"].Value<int>();
-                    bool awarded = newPlayerData["awarded"].Value<bool>();
-                    PlayerFaction faction = GetFaction(newPlayerData["faction"].ToString());
+                    string json = request.downloadHandler.text;
 
-                    Player newPlayer = new Player(playerName);
-                    newPlayer.id = playerID;
-                    newPlayer.sentSoldiers = sentSoldiers;
-                    newPlayer.sentWorkers = sentWorkers;
-                    newPlayer.hqLevel = hqLevel;
-                    newPlayer.faction = faction;
-                    newPlayer.tilesCaptured = casesCaptured;
-                    newPlayer.awarded = awarded;
+                    // Parse the JSON array
+                    JArray jsonData = JArray.Parse(json);
 
-                    if (playerData.ContainsKey(playerName))
+                    // Get player data and update our local list
+                    foreach (var newPlayerData in jsonData)
                     {
-                        playerData[playerName].Update(newPlayer);
-                    }
-                    else
-                    {
-                        playerData.Add(playerName, newPlayer);
-                    }
-                }
+                        string playerName = newPlayerData["name"].ToString();
+                        int playerID = newPlayerData["playerId"].Value<int>();
+                        int sentSoldiers = newPlayerData["sentSoldiers"].Value<int>();
+                        int sentWorkers = newPlayerData["sentWorkers"].Value<int>();
+                        int hqLevel = newPlayerData["hqLevel"].Value<int>();
+                        int casesCaptured = newPlayerData["casesCaptured"].Value<int>();
+                        bool awarded = newPlayerData["awarded"].Value<bool>();
+                        PlayerFaction faction = GetFaction(newPlayerData["faction"].ToString());
 
-                // Initialize faction data
-                int[] totalSentSoldiers = new int[5];
-                int[] totalSentWorkers = new int[5];
-                int[] hqLevelCountOver10 = new int[5];
-                int[] hqLevelCountOver15 = new int[5];
-                List<Player>[] topPlayersByFaction = new List<Player>[5];
-                for (int i = 0; i < 5; i++)
-                {
-                    topPlayersByFaction[i] = new List<Player>();
-                }
+                        Player newPlayer = new Player(playerName)
+                        {
+                            id = playerID,
+                            sentSoldiers = sentSoldiers,
+                            sentWorkers = sentWorkers,
+                            hqLevel = hqLevel,
+                            faction = faction,
+                            tilesCaptured = casesCaptured,
+                            awarded = awarded
+                        };
 
-                // Iterate through the player data
-                foreach (KeyValuePair<string, Player> pair in playerData)
-                {
-                    Player player = pair.Value;
-
-                    int factionIndex = (int)player.faction;
-
-                    totalSentSoldiers[factionIndex] += player.sentSoldiers;
-                    totalSentWorkers[factionIndex] += player.sentWorkers;
-
-                    if (player.hqLevel >= 10)
-                    {
-                        hqLevelCountOver10[factionIndex]++;
-                    }
-                    if (player.hqLevel >= 15)
-                    {
-                        hqLevelCountOver15[factionIndex]++;
+                        lock (playerData)
+                        {
+                            if (playerData.ContainsKey(playerName))
+                            {
+                                playerData[playerName].Update(newPlayer);
+                            }
+                            else
+                            {
+                                playerData.Add(playerName, newPlayer);
+                            }
+                        }
                     }
 
-                    topPlayersByFaction[factionIndex].Add(player);
-                }
-
-                // Calculate average HQ level of top 20 players by HQ level for each faction
-                double[] averageHqLevelTop20 = new double[5];
-                for (int i = 0; i < 5; i++)
-                {
-                    topPlayersByFaction[i].Sort((p1, p2) => p2.hqLevel.CompareTo(p1.hqLevel));
-                    int topCount = Math.Min(20, topPlayersByFaction[i].Count);
-                    if (topCount > 0)
+                    // Initialize faction data
+                    int[] totalSentSoldiers = new int[5];
+                    int[] totalSentWorkers = new int[5];
+                    int[] hqLevelCountOver10 = new int[5];
+                    int[] hqLevelCountOver15 = new int[5];
+                    List<Player>[] topPlayersByFaction = new List<Player>[5];
+                    for (int i = 0; i < 5; i++)
                     {
-                        averageHqLevelTop20[i] = topPlayersByFaction[i].Take(topCount).Average(p => p.hqLevel);
+                        topPlayersByFaction[i] = new List<Player>();
                     }
-                }
 
-                // Rotate the old data so we can enter the latest new data.
-                for (int i = 59; i > 0; i--)
-                {
-                    for (int j = 0; j < 5; j++)
+                    // Iterate through the player data
+                    lock (playerData)
                     {
-                        factionSentSoldiers[i, j] = factionSentSoldiers[i - 1, j];
-                        factionSentWorkers[i, j] = factionSentWorkers[i - 1, j];
+                        foreach (KeyValuePair<string, Player> pair in playerData)
+                        {
+                            Player player = pair.Value;
+
+                            int factionIndex = (int)player.faction;
+
+                            totalSentSoldiers[factionIndex] += player.sentSoldiers;
+                            totalSentWorkers[factionIndex] += player.sentWorkers;
+
+                            if (player.hqLevel >= 10)
+                            {
+                                hqLevelCountOver10[factionIndex]++;
+                            }
+                            if (player.hqLevel >= 15)
+                            {
+                                hqLevelCountOver15[factionIndex]++;
+                            }
+
+                            topPlayersByFaction[factionIndex].Add(player);
+                        }
                     }
-                }
 
-                // Enter the data for fields
-                for (int i = 0; i < 5; i++)
-                {
-                    factionAverageHqLevelTop20[i] = (float)averageHqLevelTop20[i];
-                    factionCountOverHQ10[i] = hqLevelCountOver10[i];
-                    factionCountOverHQ15[i] = hqLevelCountOver15[i];
-                    factionSentSoldiers[0, i] = totalSentSoldiers[i];
-                    factionSentWorkers[0, i] = totalSentWorkers[i];
-                }
+                    // Calculate average HQ level of top 20 players by HQ level for each faction
+                    double[] averageHqLevelTop20 = new double[5];
+                    for (int i = 0; i < 5; i++)
+                    {
+                        topPlayersByFaction[i].Sort((p1, p2) => p2.hqLevel.CompareTo(p1.hqLevel));
+                        int topCount = Math.Min(20, topPlayersByFaction[i].Count);
+                        if (topCount > 0)
+                        {
+                            averageHqLevelTop20[i] = topPlayersByFaction[i].Take(topCount).Average(p => p.hqLevel);
+                        }
+                    }
 
-                if (!pulledFirstLeaderboardData)
-                {
-                    pulledFirstLeaderboardData = true;
-                    //we need to set the first 59 minutes of the sent soldiers and workers data to the current data
-                    for (int i = 1; i < 60; i++)
+                    // Rotate the old data so we can enter the latest new data.
+                    for (int i = 59; i > 0; i--)
                     {
                         for (int j = 0; j < 5; j++)
                         {
-                            factionSentSoldiers[i, j] = factionSentSoldiers[0, j];
-                            factionSentWorkers[i, j] = factionSentWorkers[0, j];
+                            factionSentSoldiers[i, j] = factionSentSoldiers[i - 1, j];
+                            factionSentWorkers[i, j] = factionSentWorkers[i - 1, j];
                         }
                     }
-                }
 
-                // Print out a debug of all the data we just captured.
-                string debugPrint = "[Leaderboard] Faction Points: ";
-                for (int i = 1; i < 5; i++)
-                {
-                    debugPrint += factionPoints[i] + " ";
-                }
-                debugPrint += "\nFaction Point Gains: ";
-                for (int i = 1; i < 5; i++)
-                {
-                    debugPrint += factionPointGain[i] + " ";
-                }
-                debugPrint += "\nFaction Average HQ Level Top 20: ";
-                for (int i = 1; i < 5; i++)
-                {
-                    debugPrint += factionAverageHqLevelTop20[i] + " ";
-                }
-                debugPrint += "\nFaction Count Over HQ 10: ";
-                for (int i = 1; i < 5; i++)
-                {
-                    debugPrint += factionCountOverHQ10[i] + " ";
-                }
-                debugPrint += "\nFaction Count Over HQ 15: ";
-                for (int i = 1; i < 5; i++)
-                {
-                    debugPrint += factionCountOverHQ15[i] + " ";
-                }
-                debugPrint += "\nFaction Sent Soldiers: ";
-                for (int i = 1; i < 5; i++)
-                {
-                    debugPrint += factionSentSoldiers[0, i] + " ";
-                }
-                debugPrint += "\nFaction Sent Workers: ";
-                for (int i = 1; i < 5; i++)
-                {
-                    debugPrint += factionSentWorkers[0, i] + " ";
-                }
-                Debug.Log(debugPrint);
+                    // Enter the data for fields
+                    for (int i = 0; i < 5; i++)
+                    {
+                        factionAverageHqLevelTop20[i] = (float)averageHqLevelTop20[i];
+                        factionCountOverHQ10[i] = hqLevelCountOver10[i];
+                        factionCountOverHQ15[i] = hqLevelCountOver15[i];
+                        factionSentSoldiers[0, i] = totalSentSoldiers[i];
+                        factionSentWorkers[0, i] = totalSentWorkers[i];
+                    }
 
+                    if (!pulledFirstLeaderboardData)
+                    {
+                        pulledFirstLeaderboardData = true;
+                        // We need to set the first 59 minutes of the sent soldiers and workers data to the current data
+                        for (int i = 1; i < 60; i++)
+                        {
+                            for (int j = 0; j < 5; j++)
+                            {
+                                factionSentSoldiers[i, j] = factionSentSoldiers[0, j];
+                                factionSentWorkers[i, j] = factionSentWorkers[0, j];
+                            }
+                        }
+                    }
+
+                    // Print out a debug of all the data we just captured.
+                    StringBuilder debugPrint = new StringBuilder("[Leaderboard] Faction Points: ");
+                    for (int i = 1; i < 5; i++)
+                    {
+                        debugPrint.Append(factionPoints[i]).Append(" ");
+                    }
+                    debugPrint.Append("\nFaction Point Gains: ");
+                    for (int i = 1; i < 5; i++)
+                    {
+                        debugPrint.Append(factionPointGain[i]).Append(" ");
+                    }
+                    debugPrint.Append("\nFaction Average HQ Level Top 20: ");
+                    for (int i = 1; i < 5; i++)
+                    {
+                        debugPrint.Append(factionAverageHqLevelTop20[i]).Append(" ");
+                    }
+                    debugPrint.Append("\nFaction Count Over HQ 10: ");
+                    for (int i = 1; i < 5; i++)
+                    {
+                        debugPrint.Append(factionCountOverHQ10[i]).Append(" ");
+                    }
+                    debugPrint.Append("\nFaction Count Over HQ 15: ");
+                    for (int i = 1; i < 5; i++)
+                    {
+                        debugPrint.Append(factionCountOverHQ15[i]).Append(" ");
+                    }
+                    debugPrint.Append("\nFaction Sent Soldiers: ");
+                    for (int i = 1; i < 5; i++)
+                    {
+                        debugPrint.Append(factionSentSoldiers[0, i]).Append(" ");
+                    }
+                    debugPrint.Append("\nFaction Sent Workers: ");
+                    for (int i = 1; i < 5; i++)
+                    {
+                        debugPrint.Append(factionSentWorkers[0, i]).Append(" ");
+                    }
+                    Debug.Log(debugPrint.ToString());
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError("Error processing leaderboard data: " + ex.Message);
+                }
             }
             else
             {
@@ -958,20 +976,15 @@ public class GameHandler
 
         PlayerFaction GetFaction(string text)
         {
-            switch (text)
+            return text switch
             {
-                case "GREEN":
-                    return PlayerFaction.Green;
-                case "RED":
-                    return PlayerFaction.Red;
-                case "NEUTRAL":
-                    return PlayerFaction.Neutral;
-                case "BLUE":
-                    return PlayerFaction.Blue;
-                case "YELLOW":
-                    return PlayerFaction.Yellow;
-            }
-            return PlayerFaction.None;
+                "GREEN" => PlayerFaction.Green,
+                "RED" => PlayerFaction.Red,
+                "NEUTRAL" => PlayerFaction.Neutral,
+                "BLUE" => PlayerFaction.Blue,
+                "YELLOW" => PlayerFaction.Yellow,
+                _ => PlayerFaction.None,
+            };
         }
     }
 
@@ -996,10 +1009,10 @@ public class GameHandler
                 JObject jsonData = JObject.Parse(json);
 
                 // Extract connected data
-                int red = jsonData["RED"].Value<int>();
-                int green = jsonData["GREEN"].Value<int>();
-                int blue = jsonData["BLUE"].Value<int>();
-                int yellow = jsonData["YELLOW"].Value<int>();
+                int red = jsonData["RED"]?.Value<int>() ?? 0;
+                int green = jsonData["GREEN"]?.Value<int>() ?? 0;
+                int blue = jsonData["BLUE"]?.Value<int>() ?? 0;
+                int yellow = jsonData["YELLOW"]?.Value<int>() ?? 0;
 
                 //Debug.Log("Connected data: Red: " + red + ", Green: " + green + ", Blue: " + blue + ", Yellow: " + yellow);
 
@@ -1008,7 +1021,6 @@ public class GameHandler
                 factionConnectedPlayers[(int)PlayerFaction.Green] = green;
                 factionConnectedPlayers[(int)PlayerFaction.Blue] = blue;
                 factionConnectedPlayers[(int)PlayerFaction.Yellow] = yellow;
-
 
                 //send data to google sheet for graphs
                 SendDataToGoogleForm(red, green, blue, yellow);
@@ -1101,9 +1113,7 @@ public class GameHandler
         };
 
         var jsonContent = JsonConvert.SerializeObject(contentData);
-        var requestBody = $"content={Uri.EscapeDataString(jsonContent)}";
-
-        StringContent content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");
+        var requestBody = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
         using (HttpClient client = new HttpClient())
         {
@@ -1111,7 +1121,7 @@ public class GameHandler
 
             try
             {
-                HttpResponseMessage response = await client.PostAsync("https://mclama.com/Factions/UpdateGameStatus.php", content);
+                HttpResponseMessage response = await client.PostAsync("https://mclama.com/Factions/UpdateGameStatus.php", requestBody);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -1156,40 +1166,39 @@ public class GameHandler
                 float newBuildingWoodCostMultiplier = (float)jsonData["misc"]["parameters"]["building_wood_cost_multiplier"] * 1.5f;
                 float newBuildingWorkerCostMultiplier = (float)jsonData["misc"]["parameters"]["building_worker_cost_multiplier"] * 1.5f;
 
-                bool shouldUpdate = false;
 
                 if (hqIronCostMultiplier != newHqIronCostMultiplier)
                 {
                     hqIronCostMultiplier = newHqIronCostMultiplier;
-                    shouldUpdate = true;
+                    needUpdateMultipliers = true;
                 }
                 if (hqWoodCostMultiplier != newHqWoodCostMultiplier)
                 {
                     hqWoodCostMultiplier = newHqWoodCostMultiplier;
-                    shouldUpdate = true;
+                    needUpdateMultipliers = true;
                 }
                 if (hqWorkerCostMultiplier != newHqWorkerCostMultiplier)
                 {
                     hqWorkerCostMultiplier = newHqWorkerCostMultiplier;
-                    shouldUpdate = true;
+                    needUpdateMultipliers = true;
                 }
                 if (buildingIronCostMultiplier != newBuildingIronCostMultiplier)
                 {
                     buildingIronCostMultiplier = newBuildingIronCostMultiplier;
-                    shouldUpdate = true;
+                    needUpdateMultipliers = true;
                 }
                 if (buildingWoodCostMultiplier != newBuildingWoodCostMultiplier)
                 {
                     buildingWoodCostMultiplier = newBuildingWoodCostMultiplier;
-                    shouldUpdate = true;
+                    needUpdateMultipliers = true;
                 }
                 if (buildingWorkerCostMultiplier != newBuildingWorkerCostMultiplier)
                 {
                     buildingWorkerCostMultiplier = newBuildingWorkerCostMultiplier;
-                    shouldUpdate = true;
+                    needUpdateMultipliers = true;
                 }
 
-                if (shouldUpdate)
+                if (needUpdateMultipliers)
                 {
                     UpdateSiteMultipliers(gameID); // Ensure gameID is available in the context
                     Debug.Log("Multipliers updated successfully.");
@@ -1228,7 +1237,8 @@ public class GameHandler
 
                 if (response.IsSuccessStatusCode)
                 {
-                    Debug.Log("Data sent successfully.");
+                    needUpdateMultipliers = false;
+                    Debug.Log("Multiplier Data sent successfully.");
                 }
                 else
                 {
