@@ -79,7 +79,7 @@ public class Manager : MonoBehaviour
         // Other initialization code...
 
         Debug.Log("Starting PHP update thread...");
-        InvokeRepeating(nameof(StartPHPUpdateThread), 0f, 900f); // 900 seconds = 15 minutes
+        //InvokeRepeating(nameof(StartPHPUpdateThread), 0f, 900f); // 900 seconds = 15 minutes
 
         //TestApi();
 

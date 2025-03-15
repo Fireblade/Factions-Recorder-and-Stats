@@ -246,6 +246,12 @@ MonoBehaviour:
   appendLocalFiles: 0
   activeGames: 0
   gamesWaitingToStart: 0
+  dataPullCount: 0
+  loadedPlayerGuids: 0
+  activePlayers12: 
+  activePlayers8: 
+  activePlayers4: 
+  activePlayers1: 
 --- !u!4 &828395979
 Transform:
   m_ObjectHideFlags: 0
@@ -277,7 +283,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1096753063
 Transform:
   m_ObjectHideFlags: 0
@@ -306,20 +312,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   planningDepth: 0
-  maxTicks: 800
+  maxTicks: 2160
   totalCitiesCreated: 1
   duplicateCitiesDeleted: 0
   citiesInQueue: 0
-  HQIronMulti: 0.9550689402788637
-  HQWoodMulti: 0.934244470473015
-  HQWorkerMulti: 0.9142433135087602
-  ironMulti: 0.9265071825501345
-  woodMulti: 1.0677089235624904
-  workerMulti: 0.9657495507894848
+  HQIronMulti: 1
+  HQWoodMulti: 1
+  HQWorkerMulti: 1
+  ironMulti: 1
+  woodMulti: 1
+  workerMulti: 1
   hqBuyMinLevelForTavern: 8
   hqBuyMinLevelForHouse: 9
-  hqUpgradeMinLevelForTavern: 7
-  hqUpgradeMnLevelForHouse: 9
+  hqUpgradeMinLevelForTavern: 11
+  hqUpgradeMnLevelForHouse: 14
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

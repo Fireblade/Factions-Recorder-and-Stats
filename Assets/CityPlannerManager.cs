@@ -40,27 +40,27 @@ public class CityPlannerManager : MonoBehaviour
     {
         Building.InitializeBuildingData(this);
         CityData cityData = new CityData(cityDataList.Count+1);
-        cityData.stats = new Dictionary<Stat, double>
+        cityData.stats = new Dictionary<Stat, float>
         {
             { Stat.Ticks, 0 },
             { Stat.WoodStorage, 1140 },
-            { Stat.WoodStorageMulti, 1.0d },
-            { Stat.WoodProduction, 1.5d },
-            { Stat.WoodMulti, 1.0d },
-            { Stat.WoodCount, 50 },
+            { Stat.WoodStorageMulti, 1.0f },
+            { Stat.WoodProduction, 1.5f },
+            { Stat.WoodMulti, 1.0f },
+            { Stat.WoodCount, 260 },
             { Stat.IronStorage, 1140 },
-            { Stat.IronStorageMulti, 1.0d },
-            { Stat.IronProduction, 0.5 },
-            { Stat.IronMulti, 1.0d },
-            { Stat.IronCount, 0 },
+            { Stat.IronStorageMulti, 1.0f },
+            { Stat.IronProduction, 0.5f },
+            { Stat.IronMulti, 1.0f },
+            { Stat.IronCount, 300 },
             { Stat.SoldierStorage, 50 },
             { Stat.SoldierProduction, 0  },
             { Stat.SoldierMulti, 1 },
             { Stat.SoldierCount, 0 },
             { Stat.WorkerStorage, 50 },
-            { Stat.WorkerStorageMulti, 1.0d },
+            { Stat.WorkerStorageMulti, 1.0f },
             { Stat.WorkerProduction, 0 },
-            { Stat.WorkerMulti, 1.0d },
+            { Stat.WorkerMulti, 1.0f },
             { Stat.WorkerCount, 0 },
             { Stat.MaxBuildings, 5 },
             { Stat.BuildingCount, 4 },
@@ -72,7 +72,7 @@ public class CityPlannerManager : MonoBehaviour
             new Building { myBuilding = BuildingType.Mine, Level = 1 },
             new Building { myBuilding = BuildingType.Storage, Level = 1 }
         };
-        cityData.buildOrder = "Do Tutorial\n";
+        //cityData.buildOrder = "Do Tutorial\n";
         cityDataList.Add(cityData);
         cityQueue.Add(cityData);
         bestCity = cityData;
@@ -85,7 +85,8 @@ public class CityPlannerManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Space))
         {
             string stats = string.Join("\n", bestCity.stats.Select(stat => $"{stat.Key}: {stat.Value}"));
-            Debug.Log($"BestCity id: {bestCity.id}\nBuilding count: {bestCity.buildings.Count}\nTicks Spent: {bestCity.stats[Stat.Ticks]}\nBuild order:\n{bestCity.buildOrder}\n\nStats:\n{stats}");
+            //Debug.Log($"BestCity id: {bestCity.id}\nBuilding count: {bestCity.buildings.Count}\nTicks Spent: {bestCity.stats[Stat.Ticks]}\nBuild order:\n{bestCity.buildOrder}\n\nStats:\n{stats}");
+            Debug.Log($"BestCity id: {bestCity.id}\nBuilding count: {bestCity.buildings.Count}\nTicks Spent: {bestCity.stats[Stat.Ticks]}\n\nStats:\n{stats}");
         }
     }
 
@@ -119,11 +120,11 @@ public class CityPlannerManager : MonoBehaviour
                     {
                         AddNewBuildingToCity(city, BuildingType.WoodCutter);
                         AddNewBuildingToCity(city, BuildingType.Mine);
-                        if (city.buildings[0].Level >= 7 )
+                        if (HQLevel >= hqBuyMinLevelForTavern && city.buildings.Count(b => b.myBuilding == BuildingType.Tavern) < 1)
                             AddNewBuildingToCity(city, BuildingType.Tavern);
-                        if (city.buildings[0].Level >= 8)
+                        if (HQLevel >= hqBuyMinLevelForHouse && city.buildings.Count(b => b.myBuilding == BuildingType.House) < 1)
                             AddNewBuildingToCity(city, BuildingType.House);
-                        if (city.buildings[0].Level >= 10 && city.buildings.Count(b => b.myBuilding == BuildingType.Storage) < 2)
+                        if (HQLevel >= 13 && city.buildings.Count(b => b.myBuilding == BuildingType.Storage) < 2)
                             AddNewBuildingToCity(city, BuildingType.Storage);
                     }
                     else
@@ -154,20 +155,33 @@ public class CityPlannerManager : MonoBehaviour
                 }
 
                 planningDepth += 1;
+                //if (planningDepth == 15)
+                //{
+                //    //if (newQueue.Count > 100000)
+                //    //{
+                //        newQueue = new List<CityData> { bestCity };
+                //    //}
+                //}
+
 
                 // Remove duplicate cities from newQueue
-                //int initialQueueCount = newQueue.Count;
-                //newQueue = newQueue
-                //    .GroupBy<CityData, List<object>>(city => city.buildings
-                //        .OrderBy(b => b.myBuilding)
-                //        .ThenBy(b => b.Level)
-                //        .Select(b => new { b.myBuilding, b.Level })
-                //        .Cast<object>()
-                //        .ToList(), new SequenceEqualityComparer())
-                //    .Select(g => g.First())
-                //    .ToList();
+                //                    .GroupBy<CityData, List<object>>(city => city.buildings
+                int initialQueueCount = newQueue.Count;
+                newQueue = newQueue
+                    .GroupBy(city => new
+                    {
+                        Buildings = string.Join(",", city.buildings
+                            .OrderBy(b => b.myBuilding)
+                            .ThenBy(b => b.Level)
+                            .Select(b => $"{b.myBuilding}-{b.Level}")),
+                        Stats = string.Join(",", city.stats
+                            .OrderBy(s => s.Key)
+                            .Select(s => $"{s.Key}-{s.Value}"))
+                    })
+                    .Select(g => g.First())
+                    .ToList();
 
-                //duplicateCitiesDeleted += initialQueueCount - newQueue.Count;
+                duplicateCitiesDeleted += initialQueueCount - newQueue.Count;
 
                 citiesInQueue = newQueue.Count;
 
@@ -201,33 +215,34 @@ public class CityPlannerManager : MonoBehaviour
                 mineCount++;
         }
 
-        if (newBuilding == BuildingType.WoodCutter && (woodCutterCount > 5 || woodCutterCount >= 3 * mineCount))
-        {
-            return;
-        }
-        if (newBuilding == BuildingType.Mine && (mineCount > 5 || mineCount >= 3 * woodCutterCount))
-        {
-            return;
-        }
+        ////For default values, dev testing
+        //if (newBuilding == BuildingType.WoodCutter && (woodCutterCount > 5 || woodCutterCount > 2 * mineCount + 1))
+        //{
+        //    return;
+        //}
+        //if (newBuilding == BuildingType.Mine && (mineCount > 5 || mineCount > (woodCutterCount + 1) / 2))
+        //{
+        //    return;
+        //}
 
-        double cityWoodStorage = city.GetWoodStorage();
-        double cityIronStorage = city.GetIronStorage();
-        double cityWorkerStorage = city.GetWorkerStorage();
+        float cityWoodStorage = city.GetWoodStorage();
+        float cityIronStorage = city.GetIronStorage();
+        float cityWorkerStorage = city.GetWorkerStorage();
 
         var buildingCosts = Building.buildingData[newBuilding].costs[0];
 
-        double woodCost = buildingCosts.ContainsKey(ResourceType.Wood) ? buildingCosts[ResourceType.Wood] : 0;
-        double ironCost = buildingCosts.ContainsKey(ResourceType.Iron) ? buildingCosts[ResourceType.Iron] : 0;
-        double workersCost = buildingCosts.ContainsKey(ResourceType.Workers) ? buildingCosts[ResourceType.Workers] : 0;
+        float woodCost = buildingCosts.ContainsKey(ResourceType.Wood) ? (float) buildingCosts[ResourceType.Wood] : 0;
+        float ironCost = buildingCosts.ContainsKey(ResourceType.Iron) ? (float) buildingCosts[ResourceType.Iron] : 0;
+        float workersCost = buildingCosts.ContainsKey(ResourceType.Workers) ? (float) buildingCosts[ResourceType.Workers] : 0;
 
         if (workersCost > 0 && city.WorkersProduction() == 0)
         {
             return; //do not build if we have no workers.
         }
 
-        double woodRequired = Math.Max(0, woodCost - city.stats[Stat.WoodCount]);
-        double ironRequired = Math.Max(0, ironCost - city.stats[Stat.IronCount]);
-        double workersRequired = Math.Max(0, workersCost - city.stats[Stat.WorkerCount]);
+        float woodRequired = Math.Max(0, woodCost - city.stats[Stat.WoodCount]);
+        float ironRequired = Math.Max(0, ironCost - city.stats[Stat.IronCount]);
+        float workersRequired = Math.Max(0, workersCost - city.stats[Stat.WorkerCount]);
 
         if (woodCost < 0 || ironCost < 0 || workersCost < 0)
         {
@@ -240,12 +255,12 @@ public class CityPlannerManager : MonoBehaviour
             return;
         }
 
-        double woodTime = woodRequired > 0 ? woodRequired / city.WoodProduction() : 0;
-        double ironTime = ironRequired > 0 ? ironRequired / city.IronProduction() : 0;
-        double workerTime = workersRequired > 0 ? workersRequired / city.WorkersProduction() : 0;
+        float woodTime = woodRequired > 0 ? woodRequired / city.WoodProduction() : 0;
+        float ironTime = ironRequired > 0 ? ironRequired / city.IronProduction() : 0;
+        float workerTime = workersRequired > 0 ? workersRequired / city.WorkersProduction() : 0;
 
 
-        double maxTime = Math.Ceiling(Math.Max(woodTime, Math.Max(ironTime, workerTime)) + 1d);
+        float maxTime = Mathf.Ceil(Mathf.Max(woodTime, Mathf.Max(ironTime, workerTime)) + 1f);
 
         if (maxTime < 0) maxTime = 0;
         if(city.stats[Stat.Ticks] + maxTime > maxTicks)
@@ -255,25 +270,18 @@ public class CityPlannerManager : MonoBehaviour
 
         CityData newCity = new CityData(totalCitiesCreated)
         {
-            stats = new Dictionary<Stat, double>(city.stats),
-            buildings = new List<Building>(city.buildings.Select(b => new Building { myBuilding = b.myBuilding, Level = b.Level })),
-            buildOrder = city.buildOrder
+            stats = new Dictionary<Stat, float>(city.stats.ToDictionary(entry => entry.Key, entry => entry.Value)),
+            buildings = city.buildings.Select(b => new Building { myBuilding = b.myBuilding, Level = b.Level }).ToList(),
+            //buildOrder = city.buildOrder
         };
 
-        newCity.stats[Stat.WoodCount] += city.WoodProduction() * maxTime;
-        newCity.stats[Stat.IronCount] += city.IronProduction() * maxTime;
-        newCity.stats[Stat.WorkerCount] += city.WorkersProduction() * maxTime;
-        newCity.stats[Stat.Ticks] += maxTime;
-
-        newCity.stats[Stat.WoodCount] = Math.Min(city.stats[Stat.WoodCount], cityWoodStorage);
-        newCity.stats[Stat.IronCount] = Math.Min(city.stats[Stat.IronCount], cityIronStorage);
-        newCity.stats[Stat.WorkerCount] = Math.Min(city.stats[Stat.WorkerCount], cityWorkerStorage);
-
-        newCity.stats[Stat.WoodCount] -= woodCost;
-        newCity.stats[Stat.IronCount] -= ironCost;
-        newCity.stats[Stat.WorkerCount] -= workersCost;
+        newCity.stats[Stat.WoodCount] = Mathf.Min(city.stats[Stat.WoodCount] + city.WoodProduction() * maxTime, cityWoodStorage) - woodCost;
+        newCity.stats[Stat.IronCount] = Mathf.Min(city.stats[Stat.IronCount] + city.IronProduction() * maxTime, cityIronStorage) - ironCost;
+        newCity.stats[Stat.WorkerCount] = Mathf.Min(city.stats[Stat.WorkerCount] + city.WorkersProduction() * maxTime, cityWorkerStorage) - workersCost;
+        newCity.stats[Stat.Ticks] = city.stats[Stat.Ticks] + maxTime;
         newCity.stats[Stat.BuildingCount] += 1;
-        newCity.buildOrder += "Build " + newBuilding + ". Ticks: " + newCity.stats[Stat.Ticks] + "\n";
+
+        //newCity.buildOrder += "Build " + newBuilding + ". Ticks: " + newCity.stats[Stat.Ticks] + "\n";
 
         newCity.buildings.Add(new Building { myBuilding = newBuilding, Level = 1 });
 
@@ -281,11 +289,11 @@ public class CityPlannerManager : MonoBehaviour
         {
             if (newCity.stats.ContainsKey(keyValuePair.Key))
             {
-                newCity.stats[keyValuePair.Key] += keyValuePair.Value;
+                newCity.stats[keyValuePair.Key] += (float) keyValuePair.Value;
             }
             else
             {
-                newCity.stats[keyValuePair.Key] = keyValuePair.Value;
+                newCity.stats[keyValuePair.Key] = (float) keyValuePair.Value;
             }
         }
 
@@ -297,7 +305,8 @@ public class CityPlannerManager : MonoBehaviour
             {
                 bestCity = newCity;
                 Debug.Log($"New best city found. ID: {bestCity.id} with HQ level: {bestCity.buildings[0].Level} in {bestCity.stats[Stat.Ticks]} ticks");
-                Debug.Log($"City id: {bestCity.id}\nBuilding count: {bestCity.buildings.Count}\nTicks Spent: {bestCity.stats[Stat.Ticks]}\nBuild order:\n{bestCity.buildOrder}");
+                //Debug.Log($"City id: {bestCity.id}\nBuilding count: {bestCity.buildings.Count}\nTicks Spent: {bestCity.stats[Stat.Ticks]}\nBuild order:\n{bestCity.buildOrder}");
+                Debug.Log($"City id: {bestCity.id}\nBuilding count: {bestCity.buildings.Count}\nTicks Spent: {bestCity.stats[Stat.Ticks]}");
             }
         }
     }
@@ -314,16 +323,16 @@ public class CityPlannerManager : MonoBehaviour
 
         int hqLevel = city.buildings[0].Level;
 
-        double cityWoodStorage = city.GetWoodStorage();
-        double cityIronStorage = city.GetIronStorage();
-        double cityWorkerStorage = city.GetWorkerStorage();
+        float cityWoodStorage = city.GetWoodStorage();
+        float cityIronStorage = city.GetIronStorage();
+        float cityWorkerStorage = city.GetWorkerStorage();
 
         // Check if the building can be upgraded based on HQ level
         if ((building.myBuilding == BuildingType.Mine || building.myBuilding == BuildingType.WoodCutter) && building.Level >= hqLevel)
             return;
-        //if (building.myBuilding == BuildingType.Tavern && building.Level >= hqLevel - hqUpgradeMinLevelForTavern)
+        //if (building.myBuilding == BuildingType.Tavern && building.Level >= hqUpgradeMinLevelForTavern)
         //    return;
-        //if (building.myBuilding == BuildingType.House && building.Level >= hqLevel - hqUpgradeMnLevelForHouse)
+        //if (building.myBuilding == BuildingType.House && building.Level >= hqUpgradeMnLevelForHouse)
         //    return;
 
         //This section of code is designed so that it allows upgrading the storage, Only if the cost of the next HQ is higher than one of our resource costs.
@@ -343,28 +352,28 @@ public class CityPlannerManager : MonoBehaviour
 
         var buildingCosts = building.CostsForLevel(building.Level + 1);
 
-        double woodCost = buildingCosts.GetValueOrDefault(ResourceType.Wood, 0d);
-        double ironCost = buildingCosts.GetValueOrDefault(ResourceType.Iron, 0d);
-        double workersCost = buildingCosts.GetValueOrDefault(ResourceType.Workers, 0d);
+        float woodCost = (float) buildingCosts.GetValueOrDefault(ResourceType.Wood, 0f);
+        float ironCost = (float) buildingCosts.GetValueOrDefault(ResourceType.Iron, 0f);
+        float workersCost = (float) buildingCosts.GetValueOrDefault(ResourceType.Workers, 0f);
 
         if (workersCost > 0 && city.stats[Stat.WorkerProduction] == 0)
             return; // Do not upgrade if we produce no workers
 
         //Calculates the difference between the cost of the building and the resources we have.
-        double woodRequired = Math.Max(0d, woodCost - city.stats[Stat.WoodCount]);
-        double ironRequired = Math.Max(0d, ironCost - city.stats[Stat.IronCount]);
-        double workersRequired = Math.Max(0d, workersCost - city.stats[Stat.WorkerCount]);
+        float woodRequired = Mathf.Max(0f, woodCost - city.stats[Stat.WoodCount]);
+        float ironRequired = Mathf.Max(0f, ironCost - city.stats[Stat.IronCount]);
+        float workersRequired = Mathf.Max(0f, workersCost - city.stats[Stat.WorkerCount]);
 
         if (woodCost > cityWoodStorage || ironCost > cityIronStorage || workersCost > cityWorkerStorage)
             return;
 
         // Calculate the time to produce the difference (required) resources.
-        double woodTime = woodRequired > 0d ? woodRequired / city.WoodProduction() : 0d;
-        double ironTime = ironRequired > 0d ? ironRequired / city.IronProduction() : 0d;
-        double workerTime = workersRequired > 0d ? workersRequired / city.WorkersProduction() : 0d;
+        float woodTime = woodRequired > 0f ? woodRequired / city.WoodProduction() : 0f;
+        float ironTime = ironRequired > 0f ? ironRequired / city.IronProduction() : 0f;
+        float workerTime = workersRequired > 0f ? workersRequired / city.WorkersProduction() : 0f;
 
-        double maxTime = Math.Ceiling(Math.Max(woodTime, Math.Max(ironTime, workerTime)) + 1d);
-        if (city.stats[Stat.Ticks] + maxTime > maxTicks)
+        float maxTime = Mathf.Ceil(Mathf.Max(woodTime, Mathf.Max(ironTime, workerTime)) + 1f);
+        if (city.stats[Stat.Ticks] + maxTime > maxTicks || maxTime > 750)
         {
             return; //do not upgrade if we run out of time.
         }
@@ -372,25 +381,27 @@ public class CityPlannerManager : MonoBehaviour
         //{
         //    Debug.Log($"Building {building.myBuilding} is not being built/upgraded even though HQ level is higher than 8.");
         //}
-        double maxWaitTime = 360;
+        float maxWaitTime = 200;
         if (building.myBuilding == BuildingType.HQ)
         {
-            if(hqLevel > 10)
-                maxWaitTime = 50 + (20 * 3 * hqLevel); // 10 minutes per HQ level
-            else
-                maxWaitTime = 15 + (12 * 3 * hqLevel); // 10 minutes per HQ level
+            maxWaitTime = 350;
+            if (hqLevel > 10)
+                maxWaitTime += ( 60 * (hqLevel-10)); // 10 minutes per HQ level
+                //maxWaitTime = 50 + (20 * 3 * hqLevel); // 10 minutes per HQ level
+            //else
+            //    maxWaitTime = 15 + (12 * 3 * hqLevel); // 10 minutes per HQ level
         }
         else if (building.myBuilding == BuildingType.WoodCutter || building.myBuilding == BuildingType.Mine)
         {
-            maxWaitTime = 15 + (6 * 3 * hqLevel); // 3 minutes per HQ level
+            maxWaitTime = 20 + (5 * building.Level); // 3 minutes per HQ level
         }
         else if (building.myBuilding == BuildingType.Tavern || building.myBuilding == BuildingType.House)
         {
-            maxWaitTime = 15 + (3 * 3 * hqLevel); // 3 minutes per HQ level
+            maxWaitTime = 15 + (3 * building.Level); // 3 minutes per HQ level
         }
-        else if (building.myBuilding == BuildingType.Storage )
+        else if (building.myBuilding == BuildingType.Storage)
         {
-            maxWaitTime = 15 + (8 * 3 * hqLevel); // 12 minutes per HQ level
+            maxWaitTime = 15 + (3 * building.Level); // 12 minutes per HQ level
         }
 
         if (maxTime > maxWaitTime)
@@ -400,30 +411,30 @@ public class CityPlannerManager : MonoBehaviour
 
         CityData newCity = new CityData(totalCitiesCreated)
         {
-            stats = new Dictionary<Stat, double>(city.stats.ToDictionary(entry => entry.Key, entry => entry.Value)),
+            stats = new Dictionary<Stat, float>(city.stats.ToDictionary(entry => entry.Key, entry => entry.Value)),
             buildings = city.buildings.Select(b => new Building { myBuilding = b.myBuilding, Level = b.Level }).ToList(),
-            buildOrder = city.buildOrder
+            //buildOrder = city.buildOrder
         };
 
         newCity.buildings[buildingIndex].Level += 1;
 
-        newCity.stats[Stat.WoodCount] = Math.Min(city.stats[Stat.WoodCount] + city.WoodProduction() * maxTime, cityWoodStorage) - woodCost;
-        newCity.stats[Stat.IronCount] = Math.Min(city.stats[Stat.IronCount] + city.IronProduction() * maxTime, cityIronStorage) - ironCost;
-        newCity.stats[Stat.WorkerCount] = Math.Min(city.stats[Stat.WorkerCount] + city.WorkersProduction() * maxTime, cityWorkerStorage) - workersCost;
+        newCity.stats[Stat.WoodCount] = Mathf.Min(city.stats[Stat.WoodCount] + city.WoodProduction() * maxTime, cityWoodStorage) - woodCost;
+        newCity.stats[Stat.IronCount] = Mathf.Min(city.stats[Stat.IronCount] + city.IronProduction() * maxTime, cityIronStorage) - ironCost;
+        newCity.stats[Stat.WorkerCount] = Mathf.Min(city.stats[Stat.WorkerCount] + city.WorkersProduction() * maxTime, cityWorkerStorage) - workersCost;
         newCity.stats[Stat.Ticks] = city.stats[Stat.Ticks] + maxTime;
 
-        newCity.buildOrder += $"Upgrade {building.myBuilding} to level {newCity.buildings[buildingIndex].Level}. Ticks: {newCity.stats[Stat.Ticks]}";
-        newCity.buildOrder += $", Wood: {Math.Floor(newCity.stats[Stat.WoodCount])}, Iron: {Math.Floor(newCity.stats[Stat.IronCount])}, Workers: {Math.Floor(newCity.stats[Stat.WorkerCount])}\n";
+        //newCity.buildOrder += $"Upgrade {building.myBuilding} to level {newCity.buildings[buildingIndex].Level}. Ticks: {newCity.stats[Stat.Ticks]}";
+        //newCity.buildOrder += $", Wood: {Math.Floor(newCity.stats[Stat.WoodCount])}, Iron: {Math.Floor(newCity.stats[Stat.IronCount])}, Workers: {Math.Floor(newCity.stats[Stat.WorkerCount])}\n";
 
         foreach (var keyValuePair in Building.buildingData[building.myBuilding].effects)
         {
             if (newCity.stats.ContainsKey(keyValuePair.Key))
             {
-                newCity.stats[keyValuePair.Key] += keyValuePair.Value;
+                newCity.stats[keyValuePair.Key] += (float) keyValuePair.Value;
             }
             else
             {
-                newCity.stats[keyValuePair.Key] = keyValuePair.Value;
+                newCity.stats[keyValuePair.Key] = (float) keyValuePair.Value;
             }
         }
 
@@ -435,7 +446,8 @@ public class CityPlannerManager : MonoBehaviour
             {
                 bestCity = newCity;
                 Debug.Log($"New best city found. ID: {bestCity.id} with HQ level: {bestCity.buildings[0].Level} in {bestCity.stats[Stat.Ticks]} ticks");
-                Debug.Log($"City id: {bestCity.id}\nBuilding count: {bestCity.buildings.Count}\nTicks Spent: {bestCity.stats[Stat.Ticks]}\nBuild order:\n{bestCity.buildOrder}");
+                //Debug.Log($"City id: {bestCity.id}, Depth: {planningDepth}\nBuilding count: {bestCity.buildings.Count}\nTicks Spent: {bestCity.stats[Stat.Ticks]}\nBuild order:\n{bestCity.buildOrder}");
+                Debug.Log($"City id: {bestCity.id}, Depth: {planningDepth}\nBuilding count: {bestCity.buildings.Count}\nTicks Spent: {bestCity.stats[Stat.Ticks]}");
             }
         }
         else
