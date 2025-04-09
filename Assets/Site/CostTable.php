@@ -11,7 +11,6 @@ $username = $config['username'];
 $password = $config['password'];
 $dbname = $config['dbname'];
 
-
 // Create connection
 $conn = new mysqli($servername, $username, $password, $dbname);
 
@@ -21,6 +20,8 @@ if ($conn->connect_error) {
 }
 
 $selectedGameNumber = isset($_GET['gameID']) ? $_GET['gameID'] : -1;
+$selectedBuilding = isset($_GET['building']) ? $_GET['building'] : null;
+$startLevel = isset($_GET['level']) ? (int)$_GET['level'] : 1;
 
 if ($selectedGameNumber != -1) {
     $sql = "SELECT * FROM ActiveGames WHERE GameID = ?";
@@ -34,19 +35,18 @@ if ($selectedGameNumber != -1) {
 $stmt->execute();
 $result = $stmt->get_result();
 
-
 if ($result->num_rows > 0) {
     $row = $result->fetch_assoc();
     $selectedGameNumber = (int)$row['GameID'];
     $gameBuildingRevision = (int)$row['BuildingCostsVersion'];
     $gameHQCostScaling = [
-        (float)$row['HQ_Iron_Multi'],
         (float)$row['HQ_Wood_Multi'],
+        (float)$row['HQ_Iron_Multi'],
         (float)$row['HQ_Worker_Multi']
     ];
     $gameBuildingCostScaling = [
-        (float)$row['Building_Iron_Multi'],
         (float)$row['Building_Wood_Multi'],
+        (float)$row['Building_Iron_Multi'],
         (float)$row['Building_Worker_Multi']
     ];
 } else {
@@ -56,7 +56,7 @@ if ($result->num_rows > 0) {
 $stmt->close();
 $conn->close();
 
-$buildingsMaxShowLevel = 25;
+$buildingsMaxShowLevel = $selectedBuilding === null ? 10 : 25;
 
 // Read the building data file
 if (file_exists("Buildings/" . $gameBuildingRevision . ".txt")) {
@@ -86,7 +86,7 @@ if (file_exists("Buildings/" . $gameBuildingRevision . ".txt")) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Building Cost Table</title>
+    <title>Building Cost Table - Game ID: <?php echo htmlspecialchars($selectedGameNumber); ?></title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -125,6 +125,11 @@ if (file_exists("Buildings/" . $gameBuildingRevision . ".txt")) {
             background-color: #1a1a1a; /* Dark background */
             z-index: 1; /* Ensure it stays on top of other content */
         }
+        <?php if ($selectedBuilding): ?>
+        table {
+            max-width: 350px;
+        }
+        <?php endif; ?>
     </style>
 </head>
 <body>
@@ -132,23 +137,37 @@ if (file_exists("Buildings/" . $gameBuildingRevision . ".txt")) {
     <table id="buildingsTable">
         <tr>
             <th class="sticky-column">Level</th>
-            <?php foreach ($buildings as $building): ?>
-                <th colspan="3"><?php echo htmlspecialchars($building['name']); ?></th>
-            <?php endforeach; ?>
+            <?php if ($selectedBuilding): ?>
+                <th colspan="3"><?php echo htmlspecialchars($selectedBuilding); ?></th>
+            <?php else: ?>
+                <?php foreach ($buildings as $building): ?>
+                    <th colspan="3"><?php echo htmlspecialchars($building['name']); ?></th>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </tr>
         <tr>
             <td class="sticky-column"></td>
-            <?php foreach ($buildings as $building): ?>
+            <?php if ($selectedBuilding): ?>
                 <td class="wood-column">Wood Cost</td>
                 <td class="iron-column">Iron Cost</td>
                 <td class="worker-column">Worker Cost</td>
-            <?php endforeach; ?>
+            <?php else: ?>
+                <?php foreach ($buildings as $building): ?>
+                    <td class="wood-column">Wood Cost</td>
+                    <td class="iron-column">Iron Cost</td>
+                    <td class="worker-column">Worker Cost</td>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </tr>
-        <?php for ($level = 1; $level <= $buildingsMaxShowLevel; $level++): ?>
+        <?php for ($level = $startLevel; $level < $startLevel + $buildingsMaxShowLevel; $level++): ?>
             <tr class="<?php echo $level % 2 == 1 ? 'odd-row' : ''; ?>">
                 <td class="sticky-column"><?php echo $level; ?></td>
-                <?php foreach ($buildings as $building): ?>
+                <?php if ($selectedBuilding): ?>
                     <?php
+                    $building = array_filter($buildings, function($b) use ($selectedBuilding) {
+                        return $b['name'] === $selectedBuilding;
+                    });
+                    $building = reset($building);
                     if ($building['name'] === 'HQ') {
                         $woodCost = $level-1 >= $building['woodStart'] ? $building['woodCost'] * pow($gameHQCostScaling[0], $level - 2) : 0;
                         $ironCost = $level-1 >= $building['ironStart'] ? $building['ironCost'] * pow($gameHQCostScaling[1], $level - 2) : 0;
@@ -162,7 +181,24 @@ if (file_exists("Buildings/" . $gameBuildingRevision . ".txt")) {
                     <td class="wood-column"><?php echo number_format($woodCost); ?></td>
                     <td class="iron-column"><?php echo number_format($ironCost); ?></td>
                     <td class="worker-column"><?php echo number_format($workerCost); ?></td>
-                <?php endforeach; ?>
+                <?php else: ?>
+                    <?php foreach ($buildings as $building): ?>
+                        <?php
+                        if ($building['name'] === 'HQ') {
+                            $woodCost = $level-1 >= $building['woodStart'] ? $building['woodCost'] * pow($gameHQCostScaling[0], $level - 2) : 0;
+                            $ironCost = $level-1 >= $building['ironStart'] ? $building['ironCost'] * pow($gameHQCostScaling[1], $level - 2) : 0;
+                            $workerCost = $level-1 >= $building['workerStart'] ? $building['workerCost'] * pow($gameHQCostScaling[2], $level - 2) : 0;
+                        } else {
+                            $woodCost = $level >= $building['woodStart'] ? $building['woodCost'] * pow($gameBuildingCostScaling[0], $level - 1) : 0;
+                            $ironCost = $level >= $building['ironStart'] ? $building['ironCost'] * pow($gameBuildingCostScaling[1], $level - 1) : 0;
+                            $workerCost = $level >= $building['workerStart'] ? $building['workerCost'] * pow($gameBuildingCostScaling[2], $level - 1) : 0;
+                        }
+                        ?>
+                        <td class="wood-column"><?php echo number_format($woodCost); ?></td>
+                        <td class="iron-column"><?php echo number_format($ironCost); ?></td>
+                        <td class="worker-column"><?php echo number_format($workerCost); ?></td>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </tr>
         <?php endfor; ?>
     </table>
@@ -173,12 +209,14 @@ if (file_exists("Buildings/" . $gameBuildingRevision . ".txt")) {
         const buildings = <?php echo json_encode($buildings); ?>;
         const gameHQCostScaling = <?php echo json_encode($gameHQCostScaling); ?>;
         const gameBuildingCostScaling = <?php echo json_encode($gameBuildingCostScaling); ?>;
+        let startLevel = <?php echo $startLevel; ?>;
+        const selectedBuilding = <?php echo json_encode($selectedBuilding); ?>;
 
         function showMoreLevels() {
             buildingsMaxShowLevel += 5;
             const table = document.getElementById('buildingsTable');
 
-            for (let level = buildingsMaxShowLevel - 4; level <= buildingsMaxShowLevel; level++) {
+            for (let level = startLevel + buildingsMaxShowLevel - 5; level < startLevel + buildingsMaxShowLevel; level++) {
                 const row = document.createElement('tr');
                 row.className = level % 2 == 1 ? 'odd-row' : '';
                 const levelCell = document.createElement('td');
@@ -186,7 +224,8 @@ if (file_exists("Buildings/" . $gameBuildingRevision . ".txt")) {
                 levelCell.textContent = level;
                 row.appendChild(levelCell);
 
-                buildings.forEach(building => {
+                if (selectedBuilding) {
+                    let building = buildings.find(b => b.name === selectedBuilding);
                     let woodCost, ironCost, workerCost;
                     if (building.name === 'HQ') {
                         if(level==1){
@@ -219,7 +258,42 @@ if (file_exists("Buildings/" . $gameBuildingRevision . ".txt")) {
                     workerCell.className = 'worker-column';
                     workerCell.textContent = Math.round(workerCost).toLocaleString();
                     row.appendChild(workerCell);
-                });
+                } else {
+                    buildings.forEach(building => {
+                        let woodCost, ironCost, workerCost;
+                        if (building.name === 'HQ') {
+                            if(level==1){
+                                woodCost = 0;
+                                ironCost = 0;
+                                workerCost = 0;
+                            }
+                            else{
+                                woodCost = level-1 >= building.woodStart ? building.woodCost * Math.pow(gameHQCostScaling[0], level - 2) : 0;
+                                ironCost = level-1 >= building.ironStart ? building.ironCost * Math.pow(gameHQCostScaling[1], level - 2) : 0;
+                                workerCost = level-1 >= building.workerStart ? building.workerCost * Math.pow(gameHQCostScaling[2], level - 2) : 0;
+                            }
+                        } else {
+                            woodCost = level >= building.woodStart ? building.woodCost * Math.pow(gameBuildingCostScaling[0], level - 1) : 0;
+                            ironCost = level >= building.ironStart ? building.ironCost * Math.pow(gameBuildingCostScaling[1], level - 1) : 0;
+                            workerCost = level >= building.workerStart ? building.workerCost * Math.pow(gameBuildingCostScaling[2], level - 1) : 0;
+                        }
+
+                        const woodCell = document.createElement('td');
+                        woodCell.className = 'wood-column';
+                        woodCell.textContent = Math.round(woodCost).toLocaleString();
+                        row.appendChild(woodCell);
+
+                        const ironCell = document.createElement('td');
+                        ironCell.className = 'iron-column';
+                        ironCell.textContent = Math.round(ironCost).toLocaleString();
+                        row.appendChild(ironCell);
+
+                        const workerCell = document.createElement('td');
+                        workerCell.className = 'worker-column';
+                        workerCell.textContent = Math.round(workerCost).toLocaleString();
+                        row.appendChild(workerCell);
+                    });
+                }
 
                 table.appendChild(row);
             }
@@ -227,4 +301,3 @@ if (file_exists("Buildings/" . $gameBuildingRevision . ".txt")) {
     </script>
 </body>
 </html>
-

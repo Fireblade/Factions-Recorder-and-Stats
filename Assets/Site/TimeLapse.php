@@ -14,24 +14,6 @@ $username = $config['username'];
 $password = $config['password'];
 $dbname = $config['dbname'];
 
-
-// Scan the directory for available games
-$files = scandir($dir);
-$games = [];
-foreach ($files as $file) {
-    if (preg_match('/^(TestGame|Game)_(\d+)_Data\.txt$/', $file, $matches)) {
-        $games[] = ['prefix' => $matches[1], 'number' => $matches[2]];
-    }
-}
-
-// Get the selected game from the query parameter or default to the first game
-$selectedGamePrefix = isset($_GET['gamePrefix']) ? $_GET['gamePrefix'] : $games[0]['prefix'];
-$selectedGameNumber = isset($_GET['gameNumber']) ? $_GET['gameNumber'] : $games[0]['number'];
-$selectedStepNumber = isset($_GET['minute']) ? $_GET['minute'] : -1;
-$firstLoad = true;
-
-$filename = $dir . "/{$selectedGamePrefix}_{$selectedGameNumber}_MapHistory.txt";
-
 // Create connection
 $conn = new mysqli($servername, $username, $password, $dbname);
 
@@ -40,11 +22,39 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
+// Get the list of games from the database, ignoring test games
+$sql = "SELECT GameID, Map, MapWidth, MapHeight, Active, VictoryGoal, BuildingCostsVersion, waitingToStart, HQ_Wood_Multi, HQ_Iron_Multi, HQ_Worker_Multi, Building_Wood_Multi, Building_Iron_Multi, Building_Worker_Multi FROM ActiveGames WHERE TestGame = 0";
+$result = $conn->query($sql);
+
+$games = [];
+while ($row = $result->fetch_assoc()) {
+    $games[] = $row;
+}
+
+// Get the selected game from the query parameter or default to the game with the highest GameID
+if (isset($_GET['gameNumber'])) {
+    $selectedGameNumber = $_GET['gameNumber'];
+} else {
+    $selectedGameNumber = $games[0]['GameID'];
+    foreach ($games as $game) {
+        if ($game['GameID'] > $selectedGameNumber) {
+            $selectedGameNumber = $game['GameID'];
+        }
+    }
+}
+
+$selectedStepNumber = isset($_GET['minute']) ? $_GET['minute'] : -1;
+$firstLoad = true;
+
+$filename = $dir . "/Game_{$selectedGameNumber}_MapHistory.txt";
+
 $sql = "SELECT * FROM ActiveGames WHERE GameID = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $selectedGameNumber);
 $stmt->execute();
 $result = $stmt->get_result();
+
+$waitingToStart = false;
 
 if ($result->num_rows > 0) {
     $row = $result->fetch_assoc();
@@ -54,14 +64,15 @@ if ($result->num_rows > 0) {
     $gameActive = filter_var($row['Active'], FILTER_VALIDATE_BOOLEAN);
     $gameWinGoal = (int)$row['VictoryGoal'];
     $gameBuildingRevision = (int)$row['BuildingCostsVersion'];
+    $waitingToStart = filter_var($row['waitingToStart'], FILTER_VALIDATE_BOOLEAN);
     $gameHQCostScaling = [
-        (float)$row['HQ_Iron_Multi'],
         (float)$row['HQ_Wood_Multi'],
+        (float)$row['HQ_Iron_Multi'],
         (float)$row['HQ_Worker_Multi']
     ];
     $gameBuildingCostScaling = [
-        (float)$row['Building_Iron_Multi'],
         (float)$row['Building_Wood_Multi'],
+        (float)$row['Building_Iron_Multi'],
         (float)$row['Building_Worker_Multi']
     ];
 } else {
@@ -114,35 +125,49 @@ if (file_exists("Buildings/" . $gameBuildingRevision . ".txt")) {
 
 $lines = file($filename, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 if (count($lines) === 0) {
-    die("This game has not started yet. Please come back when this game has started.");
-}
-
-// Parse the data
-$mapHistory = [];
-foreach ($lines as $line) {
-    list($date, $mapData, $teamPoints, $teamPointsGain, $teamSentSoldiers, $teamSoldierGainMinute, $teamSoldierGainHour, $teamSentWorkers, $teamWorkersGainMinute, $teamWorkersGainHour, $teamAverageHQ, $teamHQOver10, $teamHQOver15, $teamConnectedPlayers) = array_pad(explode('_', $line), 14, '0');
-    
     $mapHistory[] = [
-        'date' => $date,
-        'mapData' => $mapData,
-        'teamPoints' => array_map('intval', explode('=', $teamPoints) + [0, 0, 0, 0]),
-        'teamPointsGain' => array_map('intval', explode('=', $teamPointsGain) + [0, 0, 0, 0]),
-        'teamSentSoldiers' => array_map('intval', explode('=', $teamSentSoldiers) + [0, 0, 0, 0]),
-        'teamSoldierGainMinute' => array_map(function($value) { return round(floatval($value), 2); }, explode('=', $teamSoldierGainMinute) + [0, 0, 0, 0]),
-        'teamSoldierGainHour' => array_map(function($value) { return round(floatval($value), 2); }, explode('=', $teamSoldierGainHour) + [0, 0, 0, 0]),
-        'teamSentWorkers' => array_map('intval', explode('=', $teamSentWorkers) + [0, 0, 0, 0]),
-        'teamWorkersGainMinute' => array_map(function($value) { return round(floatval($value), 2); }, explode('=', $teamWorkersGainMinute) + [0, 0, 0, 0]),
-        'teamWorkersGainHour' => array_map(function($value) { return round(floatval($value), 2); }, explode('=', $teamWorkersGainHour) + [0, 0, 0, 0]),
-        'teamAverageHQ' => array_map(function($value) { return round(floatval($value), 2); }, explode('=', $teamAverageHQ) + [0, 0, 0, 0]),
-        'teamHQOver10' => array_map('intval', explode('=', $teamHQOver10) + [0, 0, 0, 0]),
-        'teamHQOver15' => array_map('intval', explode('=', $teamHQOver15) + [0, 0, 0, 0]),
-        'teamConnectedPlayers' => array_map('intval', explode('=', $teamConnectedPlayers) + [0, 0, 0, 0])
+        'date' => 'N/A',
+        'mapData' => str_repeat('0', $mapWidth * $mapHeight),
+        'teamPoints' => [0, 0, 0, 0],
+        'teamPointsGain' => [0, 0, 0, 0],
+        'teamSentSoldiers' => [0, 0, 0, 0],
+        'teamSoldierGainMinute' => [0.0, 0.0, 0.0, 0.0],
+        'teamSoldierGainHour' => [0.0, 0.0, 0.0, 0.0],
+        'teamSentWorkers' => [0, 0, 0, 0],
+        'teamWorkersGainMinute' => [0.0, 0.0, 0.0, 0.0],
+        'teamWorkersGainHour' => [0.0, 0.0, 0.0, 0.0],
+        'teamAverageHQ' => [0.0, 0.0, 0.0, 0.0],
+        'teamHQOver10' => [0, 0, 0, 0],
+        'teamHQOver15' => [0, 0, 0, 0],
+        'teamConnectedPlayers' => [0, 0, 0, 0]
     ];
+} else {
+    foreach ($lines as $line) {
+        list($date, $mapData, $teamPoints, $teamPointsGain, $teamSentSoldiers, $teamSoldierGainMinute, $teamSoldierGainHour, $teamSentWorkers, $teamWorkersGainMinute, $teamWorkersGainHour, $teamAverageHQ, $teamHQOver10, $teamHQOver15, $teamConnectedPlayers) = array_pad(explode('_', $line), 14, '0');
+        
+        $mapHistory[] = [
+            'date' => $date,
+            'mapData' => $mapData,
+            'teamPoints' => array_map('intval', explode('=', $teamPoints) + [0, 0, 0, 0]),
+            'teamPointsGain' => array_map('intval', explode('=', $teamPointsGain) + [0, 0, 0, 0]),
+            'teamSentSoldiers' => array_map('intval', explode('=', $teamSentSoldiers) + [0, 0, 0, 0]),
+            'teamSoldierGainMinute' => array_map(function($value) { return round(floatval($value), 2); }, explode('=', $teamSoldierGainMinute) + [0, 0, 0, 0]),
+            'teamSoldierGainHour' => array_map(function($value) { return round(floatval($value), 2); }, explode('=', $teamSoldierGainHour) + [0, 0, 0, 0]),
+            'teamSentWorkers' => array_map('intval', explode('=', $teamSentWorkers) + [0, 0, 0, 0]),
+            'teamWorkersGainMinute' => array_map(function($value) { return round(floatval($value), 2); }, explode('=', $teamWorkersGainMinute) + [0, 0, 0, 0]),
+            'teamWorkersGainHour' => array_map(function($value) { return round(floatval($value), 2); }, explode('=', $teamWorkersGainHour) + [0, 0, 0, 0]),
+            'teamAverageHQ' => array_map(function($value) { return round(floatval($value), 2); }, explode('=', $teamAverageHQ) + [0, 0, 0, 0]),
+            'teamHQOver10' => array_map('intval', explode('=', $teamHQOver10) + [0, 0, 0, 0]),
+            'teamHQOver15' => array_map('intval', explode('=', $teamHQOver15) + [0, 0, 0, 0]),
+            'teamConnectedPlayers' => array_map('intval', explode('=', $teamConnectedPlayers) + [0, 0, 0, 0])
+        ];
+    }
 }
 
 // Encode map history as a JSON array for use in JavaScript
 $mapHistoryJson = json_encode($mapHistory);
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -151,182 +176,241 @@ $mapHistoryJson = json_encode($mapHistory);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Time-lapse Viewer</title>
     <style>
-            body {
-                font-family: Arial, sans-serif;
-                margin: 0;
-                padding: 0;
-                height: 100vh;
-                display: flex;
-                flex-direction: column;
-                background-color: #1a1a1a; /* Dark background */
-                color: #C0C0C0; /* White text */
-            }
-            #topBanner {
-                background-color: #333;
-                color: white;
-                padding: 10px;
-                text-align: center;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-            #container {
-                display: flex;
-                flex-direction: row;
-                height: 100%;
-                flex-wrap: none;
-            }
-            #viewer {
-                width: 67%;
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: flex-start;
-                background-color: #1a1a1a; /* Dark background */
-            }
-            #map {
-                width: fit-content;
-                aspect-ratio: 1;
-                height: 80%;
-                border: 1px solid #ccc;
-                position: relative;
-            }
-            .tile {
-                position: absolute;
-                box-sizing: border-box;
-                border: 1px solid rgba(255, 255, 255, 0.5); /* White border */
-            }
-            .tile.transparent {
-                border: none;
-            }
-            #gameNumberContainer {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            #gameNumber {
-                font-size: 1.2em;
-                background-color: #333; /* Dark background */
-                color: white; /* White text */
-                border: 1px solid white; /* White border */
-            }
-            #status {
-                font-size: 1.2em;
-                margin-left: 10px;
-            }
-            #slider {
-                margin-top: 10px;
-                width: 100%;
-            }
-            #gameExtraInfo {
-                display: flex;
-                align-items: center;
-                width: 80%;
-                justify-content: space-between;
-            }
-            #gameExtraInfoLine2 {
-                display: flex;
-                align-items: center;
-                width: 80%;
-                justify-content: space-between;
-            }
-            #dateDisplay {
-                margin-top: 10px;
-                align-self: flex-start;
-            }
-            #gridToggle {
-                margin-top: 10px;
-                align-self: flex-end;
-            }
-            #instructions {
-                margin-top: 10px;
-                font-size: 0.9em;
-                color: #ccc; /* Light gray text */
-                align-self: flex-start;
-            }
-            #autoplay {
-                margin-top: 10px;
-                font-size: 0.9em;
-                color: #ccc; /* Light gray text */
-                align-self: flex-end;
-            }
-            #autoplay label, #autoplay select {
-                display: inline-block;
-            }
-            #infoPanel {
-                width: 40%;
-                min-width: 33%;
-                padding: 10px;
-                display: flex;
-                flex-direction: column;
-                overflow-y: auto;
-                background-color: #1a1a1a; /* Dark background */
-                color: #FFFFFF4D; /* White text */
-            }
-            #buttons {
-                display: flex;
-                justify-content: space-around;
-                margin-bottom: 6px;
-            }
-            #overview, #buildings {
-                display: none;
-                flex-direction: column;
-                width: 100%;
-            }
-            #overview.active, #buildings.active {
-                display: block;
-            }
-            .team-table {
-                width: 100%;
-                margin-bottom: 6px;
-                font-size: 0.9em;
-                border: 1px solid #FFFFFF4D; /* White border */
-            }
-            .team-table th, .team-table td {
-                padding: 2px;
-                text-align: left;
-                border: 1px solid #FFFFFF4D; /* White border */
-            }
-            .status {
-                font-weight: bold;
-                color: green;
-            }
-            .sticky-column {
-                position: -webkit-sticky; /* For Safari */
-                position: sticky;
-                left: 0;
-                background-color: #1a1a1a; /* Dark background */
-                z-index: 1; /* Ensure it stays on top of other content */
-            }
-            .odd-row {
-                background-color: #333; /* Slightly darker background for odd rows */
-            }
-            .wood-column {
-                background-color: #5a2e0d; /* Darker brown for wood columns */
-            }
-            .iron-column {
-                background-color: #2c4a6b; /* Darker blue for iron columns */
-            }
-            .worker-column {
-                background-color: #8B8000; /* Dark yellow for worker columns */
-            }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: #1a1a1a; /* Dark background */
+            color: #C0C0C0; /* White text */
+        }
+        #topBanner {
+            background-color: #333;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+        #menuButton img {
+            width: 30px; /* Set a fixed width for the image */
+            height: 30px; /* Set a fixed height for the image */
+        }
+        #container {
+            display: flex;
+            flex-direction: row;
+            height: 100%;
+            flex-wrap: none;
+        }
+        #viewer {
+            width: 67%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            background-color: #1a1a1a; /* Dark background */
+        }
+        #map {
+            width: fit-content;
+            aspect-ratio: 1;
+            height: 80%;
+            border: 1px solid #ccc;
+            position: relative;
+        }
+        .tile {
+            position: absolute;
+            box-sizing: border-box;
+            border: 1px solid rgba(255, 255, 255, 0.5); /* White border */
+        }
+        .tile.transparent {
+            border: none;
+        }
+        #gameNumberContainer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #gameNumber {
+            font-size: 1.2em;
+            background-color: #333; /* Dark background */
+            color: white; /* White text */
+            border: 1px solid white; /* White border */
+        }
+        #status {
+            font-size: 1.2em;
+            margin-left: 10px;
+        }
+        #slider {
+            margin-top: 10px;
+            width: 100%;
+        }
+        #gameExtraInfo {
+            display: flex;
+            align-items: center;
+            width: 80%;
+            justify-content: space-between;
+        }
+        #gameExtraInfoLine2 {
+            display: flex;
+            align-items: center;
+            width: 80%;
+            justify-content: space-between;
+        }
+        #dateDisplay {
+            margin-top: 10px;
+            align-self: flex-start;
+        }
+        #gridToggle {
+            margin-top: 10px;
+            align-self: flex-end;
+        }
+        #instructions {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #ccc; /* Light gray text */
+            align-self: flex-start;
+        }
+        #autoplay {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #ccc; /* Light gray text */
+            align-self: flex-end;
+        }
+        #autoplay label, #autoplay select {
+            display: inline-block;
+        }
+        #infoPanel {
+            width: 40%;
+            min-width: 33%;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            background-color: #1a1a1a; /* Dark background */
+            color: #FFFFFF4D; /* White text */
+        }
+        #buttons {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 6px;
+        }
+        #overview, #buildings {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+        }
+        #overview.active, #buildings.active {
+            display: block;
+        }
+        .team-table {
+            width: 100%;
+            margin-bottom: 6px;
+            font-size: 0.9em;
+            border: 1px solid #FFFFFF4D; /* White border */
+        }
+        .team-table th, .team-table td {
+            padding: 2px;
+            text-align: left;
+            border: 1px solid #FFFFFF4D; /* White border */
+        }
+        .status {
+            font-weight: bold;
+            color: green;
+        }
+        .sticky-column {
+            position: -webkit-sticky; /* For Safari */
+            position: sticky;
+            left: 0;
+            background-color: #1a1a1a; /* Dark background */
+            z-index: 1; /* Ensure it stays on top of other content */
+        }
+        .odd-row {
+            background-color: #333; /* Slightly darker background for odd rows */
+        }
+        .wood-column {
+            background-color: #5a2e0d; /* Darker brown for wood columns */
+        }
+        .iron-column {
+            background-color: #2c4a6b; /* Darker blue for iron columns */
+        }
+        .worker-column {
+            background-color: #8B8000; /* Dark yellow for worker columns */
+        }
+        /* Menu styles */
+        #menuButton {
+            background: #f0f0f0; /* Light gray background */
+            border: 1px solid #ccc; /* Slightly darker border */
+            padding: 5px; /* Add some padding */
+            border-radius: 5px; /* Optional: rounded corners */
+        }
+
+        #menuButton img {
+            width: 30px; /* Set a fixed width for the image */
+            height: 30px; /* Set a fixed height for the image */
+        }
+
+        #menu {
+            display: none;
+            position: absolute;
+            top: 50px;
+            left: 10px;
+            width: 200px;
+            background-color: #333;
+            border: 1px solid #ccc;
+            padding: 10px;
+            z-index: 1000;
+        }
+        #menu a {
+            display: block;
+            color: white;
+            text-decoration: none;
+            padding: 5px 0;
+        }
+        #menu a:hover {
+            background-color: #444;
+        }
+        #menu .section-label {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #ccc;
+        }
     </style>
 </head>
 <body>
 
 <div id="topBanner">
+    <button id="menuButton" onclick="toggleMenu()">
+        <img src="https://www.mclama.com/Factions/Images/menu_list.png" alt="Menu">
+    </button>
     <div id="gameNumberContainer">
         <select id="gameNumber" onchange="updateGame()">
-            <?php foreach ($games as $game): ?>
-                <option value="<?php echo $game['prefix'] . '_' . $game['number']; ?>" <?php echo ($game['prefix'] === $selectedGamePrefix && $game['number'] == $selectedGameNumber) ? 'selected' : ''; ?>>
-                    <?php echo $game['prefix'] . ' ' . $game['number']; ?>
+            <?php foreach (array_reverse($games) as $game): ?>
+                <option value="<?php echo 'Game ' . $game['GameID']; ?>" <?php echo ($game['GameID'] == $selectedGameNumber) ? 'selected' : ''; ?>>
+                    <?php echo 'Game ' . $game['GameID']; ?>
                 </option>
             <?php endforeach; ?>
         </select>
     </div>
     <div id="status">Game Status</div>
 </div>
+
+<div id="menu">
+    <a href="https://mclama.com/Factions/TimeLapse.php">Timelapse</a>
+    <a href="https://mclama.com/Factions/PlayerList.php">Player List</a>
+    <a href="https://mclama.com/Factions/ProjectCostPlanner.php">Project Planner</a>
+    <a href="https://mclama.com/Factions/GameLeaderboard.php">Game Leaderboard</a>
+    <div class="section-label">Developer Stuff</div>
+    <a href="https://mclama.com/Factions/Buildings/">Building Data</a>
+    <a href="https://mclama.com/Factions/Maps/">Maps</a>
+    <a href="https://mclama.com/Factions/Sounds/">Sounds</a>
+    <a href="https://mclama.com/Factions/GameData/">Game Data</a>
+</div>
+
 <div id="container">
     <div id="viewer">
         <div id="map">
@@ -763,10 +847,9 @@ $mapHistoryJson = json_encode($mapHistory);
         if(gameActive){
             return;
         }
-        const gamePrefix = "<?php echo $selectedGamePrefix; ?>";
         const gameNumber = "<?php echo $selectedGameNumber; ?>";
         let latestData = { date: '1' };
-        fetch(`FetchLatestData.php?gamePrefix=${gamePrefix}&gameNumber=${gameNumber}`)
+        fetch(`FetchLatestData.php?gameNumber=${gameNumber}`)
             .then(response => response.json())
             .then(latestData => {
                 if (latestData.error) {
@@ -793,10 +876,9 @@ $mapHistoryJson = json_encode($mapHistory);
 
     function updateGame() {
         const gameSelect = document.getElementById('gameNumber');
-        const selectedGame = gameSelect.value.split('_');
-        const gamePrefix = selectedGame[0];
+        const selectedGame = gameSelect.value.split(' ');
         const gameNumber = selectedGame[1];
-        const newUrl = `TimeLapse.php?gamePrefix=${gamePrefix}&gameNumber=${gameNumber}`;
+        const newUrl = `TimeLapse.php?gameNumber=${gameNumber}`;
         window.history.pushState({ path: newUrl }, '', newUrl);
         window.location.href = newUrl;
     }
@@ -906,6 +988,15 @@ $mapHistoryJson = json_encode($mapHistory);
 	{ 
 		return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 	}
+
+    function toggleMenu() {
+        const menu = document.getElementById('menu');
+        if (menu.style.display === 'block') {
+            menu.style.display = 'none';
+        } else {
+            menu.style.display = 'block';
+        }
+    }
 
 	document.addEventListener("DOMContentLoaded", function ()
 	{ 

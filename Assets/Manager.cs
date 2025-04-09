@@ -79,7 +79,7 @@ public class Manager : MonoBehaviour
         // Other initialization code...
 
         Debug.Log("Starting PHP update thread...");
-        //InvokeRepeating(nameof(StartPHPUpdateThread), 0f, 900f); // 900 seconds = 15 minutes
+        InvokeRepeating(nameof(StartPHPUpdateThread), 0f, 900f); // 900 seconds = 15 minutes
 
         //TestApi();
 
@@ -662,9 +662,11 @@ try
                         int minuteSplits = int.Parse(parts[17]);
                         GameMode gameMode = (GameMode)Enum.Parse(typeof(GameMode), parts[18]); // Parse the game mode from the string
 
+                        // Check if a game handler with the same game ID and test status already exists
                         GameHandler existingGameHandler = gameHandlers.Find(g => g.gameID == gameId && g.isTestGame == isTestGame);
                         if (existingGameHandler != null)
                         {
+                            // If the game handler exists, update its properties if they have changed
                             if (existingGameHandler.waitingToStart != waitingToStart)
                             {
                                 existingGameHandler.waitingToStart = waitingToStart;
@@ -673,12 +675,25 @@ try
                             {
                                 existingGameHandler.isGameActive = isGameActive;
                             }
+                            if (existingGameHandler.minuteSplit != minuteSplits)
+                            {
+                                existingGameHandler.minuteSplit = minuteSplits;
+                            }
+                            if (existingGameHandler.victoryGoal != victoryGoal)
+                            {
+                                existingGameHandler.victoryGoal = victoryGoal;
+                            }
                         }
                         else
                         {
+                            // If the game handler does not exist, create a new one and add it to the gameHandlers list
                             Debug.Log($"New {(isGameActive ? "active " : "")}game found with ID: " + gameId + " and map: " + mapName + " with dimensions: " + mapWidth + "x" + mapHeight + ". Adding to list.");
-                            gameHandlers.Add(new GameHandler(gameId, isTestGame, isGameActive, mapName, mapWidth, mapHeight, waitingToStart, victoryGoal, hqIronMulti, hqWoodMulti, hqWorkerMulti, buildingIronMulti, buildingWoodMulti, buildingWorkerMulti, gameMinute,averageSoldierBlocks, averageWorkerBlocks, minuteSplits, gameMode));
+                            gameHandlers.Add(new GameHandler(gameId, isTestGame, isGameActive, mapName, mapWidth, mapHeight, waitingToStart, victoryGoal, hqIronMulti, hqWoodMulti, hqWorkerMulti, buildingIronMulti, buildingWoodMulti, buildingWorkerMulti, gameMinute, averageSoldierBlocks, averageWorkerBlocks, minuteSplits, gameMode));
+
+                            // Increment the activeGames counter if the new game is active
                             if (isGameActive) activeGames += 1;
+
+                            // Increment the gamesWaitingToStart counter if the new game is waiting to start
                             if (waitingToStart) gamesWaitingToStart += 1;
                         }
                     }

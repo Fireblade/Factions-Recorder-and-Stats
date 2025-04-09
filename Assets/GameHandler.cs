@@ -26,7 +26,7 @@ public class GameHandler
     public int width = 50;
     public int height = 50;
     public bool waitingToStart = false;
-    private int victoryGoal;
+    public int victoryGoal = 100000;
     private float hqIronCostMultiplier=1.5f;
     private float hqWoodCostMultiplier = 1.5f;
     private float hqWorkerCostMultiplier = 1.5f;
@@ -497,6 +497,7 @@ public class GameHandler
 
                 using (HttpClient client = new HttpClient())
                 {
+                    client.DefaultRequestHeaders.Add("API_KEY", Manager.apiToken);
                     string requestBody = $"mapData={Uri.EscapeDataString(mapPrint)}&gameID={gameID}&isTestGame={isTestGame.ToString()}";
 
                     StringContent content = new StringContent(requestBody, Encoding.UTF8, "application/x-www-form-urlencoded");

@@ -20,6 +20,7 @@ if ($conn->connect_error) {
 }
 
 $gameID = isset($_GET['GameID']) ? intval($_GET['GameID']) : null;
+$condenseTop = isset($_GET['condenseTop']);
 
 if ($gameID === null) {
     // Display list of games
@@ -44,21 +45,30 @@ if ($gameID === null) {
         echo "<a href='?'>Back to Game List</a>";
     } else {
         // Display game leaderboard
-        echo "<div style='display: flex; align-items: center;'>";
-        echo "<button onclick='viewPlayerList()'>Back to Game List</button>";
-        if ($gameID == 22) {
-            echo "<h1 style='margin-left: 10px;'>Game 22 Leaderboards (Temporarily missing data)</h1>";
-        } else {
-            echo "<h1 style='margin-left: 10px;'>Game $gameID Leaderboard</h1>";
+        if (!$condenseTop) {
+            echo "<div style='display: flex; align-items: center;'>";
+            echo "<button onclick='viewPlayerList()'>Back to Game List</button>";
+            if ($gameID == 22) {
+                echo "<h1 style='margin-left: 10px;'>Game 22 Leaderboards (Temporarily missing data)</h1>";
+            } else {
+                echo "<h1 style='margin-left: 10px;'>Game $gameID Leaderboard</h1>";
+            }
+            echo "</div>";
         }
-        echo "</div>";
 
         // Add team filter buttons
-        echo "<div class='team-filters'>";
-        echo "<button class='team-button' id='redTeam' onclick='toggleTeam(\"RED\")' style='background-color: red;'>RED</button>";
-        echo "<button class='team-button' id='greenTeam' onclick='toggleTeam(\"GREEN\")' style='background-color: green;'>GREEN</button>";
-        echo "<button class='team-button' id='blueTeam' onclick='toggleTeam(\"BLUE\")' style='background-color: blue;'>BLUE</button>";
-        echo "<button class='team-button' id='yellowTeam' onclick='toggleTeam(\"YELLOW\")' style='background-color: yellow;'>YELLOW</button>";
+        echo "<div class='team-filters' style='display: flex; align-items: center;'>";
+        echo "<button class='team-button' id='redTeam' onclick='toggleTeam(\"RED\")' style='background-color: #4d0000;'>RED</button>";
+        echo "<button class='team-button' id='greenTeam' onclick='toggleTeam(\"GREEN\")' style='background-color: #004d00;'>GREEN</button>";
+        echo "<button class='team-button' id='blueTeam' onclick='toggleTeam(\"BLUE\")' style='background-color: #00004d;'>BLUE</button>";
+        echo "<button class='team-button' id='yellowTeam' onclick='toggleTeam(\"YELLOW\")' style='background-color: #4d4d00;'>YELLOW</button>";
+        if ($condenseTop) {
+            if ($gameID == 22) {
+                echo "<h1 style='margin-left: 10px;'>Game 22 Leaderboards (Temporarily missing data)</h1>";
+            } else {
+                echo "<h1 style='margin-left: 10px;'>Game $gameID Leaderboard</h1>";
+            }
+        }
         echo "</div>";
 
         $sql = "SELECT PlayerID, PlayerName, Team, HQLevel, Soldiers, Workers, TilesCaptured, FPRating FROM $tableName";
@@ -92,13 +102,14 @@ if ($gameID === null) {
         echo "<script>";
         echo "var players = " . json_encode($players) . ";";
         echo "var currentPage = 1;";
-        echo "var playersPerPage = localStorage.getItem('playersPerPage') || 100;";
+        echo "var playersPerPage = 200;";
         echo "var sortColumn = 8;"; // Default sort by MVP Score
         echo "var sortOrder = 'desc';"; // Default sort order
         echo "var teamFilters = { RED: true, GREEN: true, BLUE: true, YELLOW: true };";
         echo "var gameID = " . $gameID . ";"; // Pass gameID to JavaScript
         echo "document.addEventListener('DOMContentLoaded', function() {";
         echo "    sortTable(sortColumn, 'num', true);"; // Initialize sorting
+        echo "    window.addEventListener('scroll', onScroll);"; // Add scroll event listener
         echo "});";
         echo "</script>";
     }
@@ -136,14 +147,18 @@ function sortTable(columnIndex, type, descending = false) {
     });
     sortColumn = columnIndex;
     sortOrder = descending ? 'desc' : 'asc';
-    displayPlayers();
+    currentPage = 1; // Reset to the first page
+    displayPlayers(true); // Clear existing rows
 }
 
-function displayPlayers() {
+function displayPlayers(clear = false) {
     var tableBody = document.getElementById("playerTableBody");
-    tableBody.innerHTML = "";
+    if (clear) {
+        tableBody.innerHTML = ""; // Clear existing rows
+    }
     var start = (currentPage - 1) * playersPerPage;
     var end = start + playersPerPage;
+    if (start >= players.length) return; // No more players to display
     for (var i = start; i < end && i < players.length; i++) {
         if (!players[i].PlayerName || !teamFilters[players[i].Team]) {
             continue;
@@ -164,31 +179,22 @@ function displayPlayers() {
         row += "<td>" + Number(players[i].MVPScore).toLocaleString() + "</td>";
         row += "<td>" + Number(players[i].TilesCaptured).toLocaleString() + "</td>";
         row += "<td>" + Number(players[i].FPRating).toLocaleString() + "</td>";
-        row += "</tr>";
         tableBody.innerHTML += row;
     }
-    updatePaginationControls();
+    currentPage++;
 }
 
-function updatePaginationControls() {
-    var paginationControls = document.getElementById('paginationControls');
-    paginationControls.innerHTML = "";
-    var totalPages = Math.ceil(players.length / playersPerPage);
-    for (var i = 1; i <= totalPages; i++) {
-        var pageButton = "<button onclick='goToPage(" + i + ")'>" + i + "</button>";
-        paginationControls.innerHTML += pageButton;
+function onScroll() {
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight) {
+        displayPlayers();
     }
-}
-
-function goToPage(page) {
-    currentPage = page;
-    displayPlayers();
 }
 
 function toggleTeam(team) {
     teamFilters[team] = !teamFilters[team];
     document.getElementById(team.toLowerCase() + 'Team').style.opacity = teamFilters[team] ? '1' : '0.5';
-    displayPlayers();
+    currentPage = 1; // Reset to the first page
+    displayPlayers(true); // Clear existing rows
 }
 
 function getTeamColor(team) {
@@ -210,7 +216,7 @@ function getTeamColor(team) {
 <style>
     body {
         font-family: Arial, sans-serif;
-        background-color: #8A3F00;
+        background-color: #8E6B43;
         color: white;
     }
     table {
@@ -261,17 +267,15 @@ function getTeamColor(team) {
     }
     .team-filters {
         margin: 0px 0;
+        display: flex;
+        align-items: center;
     }
     .team-button {
         margin-right: 10px;
         padding: 10px 20px;
         color: white;
+        font-weight: bold; /* Bolden the text */
         border: none;
         cursor: pointer;
     }
 </style>
-
-
-
-
-

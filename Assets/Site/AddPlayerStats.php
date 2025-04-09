@@ -82,15 +82,8 @@ foreach ($data as $player) {
     $playedBlue = $team === 'BLUE' ? 1 : 0;
     $playedYellow = $team === 'YELLOW' ? 1 : 0;
 
-        // Initialize PreviousNames to an empty string for each iteration
-    $previousNames = '';
-    $currentName = $playerName;
-
-    // Retrieve the player of the same ID and get their current name, and previous names.
-    // If the player's current name is different than the playerName, we need to add it to the list of previous names.
-    // But before we add a name to the previous names, we need to make sure that it's not in the player's previous names list.
-    // If it is, we skip it.
-    $query = "SELECT PlayerName, PreviousNames FROM $tableName WHERE PlayerID = ?";
+    // Retrieve the player's current name
+    $query = "SELECT PlayerName FROM $tableName WHERE PlayerID = ?";
     $stmt = $conn->prepare($query);
     if ($stmt === false) {
         logDebug("Prepare failed: " . $conn->error);
@@ -100,25 +93,29 @@ foreach ($data as $player) {
     if ($stmt->execute() === false) {
         die("Execute failed: " . $stmt->error);
     }
-    $stmt->bind_result($currentName, $previousNames);
+    $stmt->bind_result($currentName);
     $stmt->fetch();
     $stmt->close();
 
+    // If the player's current name is different from the new name, add the current name to the previous names table
     if ($currentName !== $playerName) {
-        $previousNamesArray = explode(',', $previousNames);
-        if (!in_array($currentName, $previousNamesArray)) {
-            $previousNamesArray[] = $currentName;
+        $query = "INSERT INTO PlayerPreviousNames (PlayerID, PreviousName) VALUES (?, ?)
+                  ON DUPLICATE KEY UPDATE PreviousName = PreviousName";
+        $stmt = $conn->prepare($query);
+        if ($stmt === false) {
+            logDebug("Prepare failed: " . $conn->error);
+            die("Prepare failed: " . $conn->error);
         }
-        $previousNames = implode(',', $previousNamesArray);
+        $stmt->bind_param("is", $playerID, $currentName);
+        if ($stmt->execute() === false) {
+            die("Execute failed: " . $stmt->error);
+        }
+        $stmt->close();
     }
-    $previousNames = rtrim($previousNames, ',');
-
-
-
 
     // Insert or update player data
-    $query = "INSERT INTO $tableName (PlayerID, PlayerName, TotalHQLevel, TotalSoldiers, TotalWorkers, TotalCasesCaptured, TotalSoldierRank, TotalWorkerRank, TotalHQRank, Awards, PlayedRed, PlayedGreen, PlayedBlue, PlayedYellow, PreviousNames)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    $query = "INSERT INTO $tableName (PlayerID, PlayerName, TotalHQLevel, TotalSoldiers, TotalWorkers, TotalCasesCaptured, TotalSoldierRank, TotalWorkerRank, TotalHQRank, Awards, PlayedRed, PlayedGreen, PlayedBlue, PlayedYellow)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               ON DUPLICATE KEY UPDATE
               GamesPlayed = GamesPlayed + 1,
               TotalHQLevel = TotalHQLevel + VALUES(TotalHQLevel),
@@ -132,15 +129,14 @@ foreach ($data as $player) {
               PlayedRed = PlayedRed + VALUES(PlayedRed),
               PlayedGreen = PlayedGreen + VALUES(PlayedGreen),
               PlayedBlue = PlayedBlue + VALUES(PlayedBlue),
-              PlayedYellow = PlayedYellow + VALUES(PlayedYellow),
-              PreviousNames = VALUES(PreviousNames)";
+              PlayedYellow = PlayedYellow + VALUES(PlayedYellow)";
     
     $stmt = $conn->prepare($query);
     if ($stmt === false) {
         logDebug("Prepare failed: " . $conn->error);
         die("Prepare failed: " . $conn->error);
     }
-    $stmt->bind_param("isiiiiiiiiiiiss", $playerID, $playerName, $hqLevel, $soldiers, $workers, $totalCasesCaptured, $rankBySoldiers, $rankByWorkers, $rankByHQLevel, $awarded, $playedRed, $playedGreen, $playedBlue, $playedYellow, $previousNames);
+    $stmt->bind_param("isiiiiiiiiiiii", $playerID, $playerName, $hqLevel, $soldiers, $workers, $totalCasesCaptured, $rankBySoldiers, $rankByWorkers, $rankByHQLevel, $awarded, $playedRed, $playedGreen, $playedBlue, $playedYellow);
     if ($stmt->execute() === false) {
         die("Execute failed: " . $stmt->error);
     }
